@@ -27,15 +27,17 @@ app.get("/staff", (req, res) => {
   })
 })
 
+
+
 app.post("/staff", (req, res) => {
   db.query(
-    "INSERT INTO `staff` (`id`, `username`, `firstname`, `lastname`, `password`, `pin`) VALUES (NULL, ?, ?, ?, ?, ?)",
+    "INSERT INTO `staff` (`id`, `username`, `firstname`, `lastname`, `password`) VALUES (NULL, ?, ?, ?, ?)",
     [
       req.body.username,
       req.body.firstname,
       req.body.lastname,
       req.body.password,
-      req.body.pin,
+    
     ],
     (err, result) => {
       res.json(result.affectedRows)
@@ -43,32 +45,30 @@ app.post("/staff", (req, res) => {
   )
 })
 
-app.post("/login", async (req, res) => {
+app.post("/login",(req, res) => {
   const { username, password } = req.body
-  try {
-    const result = await db.query(
-      "SELECT * FROM staff WHERE username=$1 AND password=$2",
-      [username, password]
-    )
-    const UserData = result.rows[0]
 
-    if (!UserData) {
-      return res.status(400).json({ success: false })
-    }
-    const isMatch = await compare(password, UserData.password)
-    if (isMatch) {
-      return res
-        .status(200)
-        .json({ success: true, message: "login successful" })
-    } else {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid username and password" })
-    }
-  } catch (err) {
-    console.error("Eror logging in", err.stack)
-    return res.status(500).json({ success: false, message: "Error logging in" })
-  }
+  db.query("SELECT * FROM staff WHERE username=? AND password=?",
+      [username, password], (err, rows) => {
+        if (rows.length==0) {
+          return res
+            .status(400)
+            .json({ 
+              success: 'fail', 
+              message: "Invalid username and password",
+              staff:null,
+            })
+        }
+        const userData = rows[0]
+    
+        return res
+            .status(200)
+            .json({ 
+              success: 'success', 
+              message: "login successful",
+              staff:userData,
+            })
+  })
 })
 
 //patient
@@ -80,16 +80,18 @@ app.get("/patient", (req, res) => {
 
 app.post("/patient", (req, res) => {
   db.query(
-    "INSERT INTO `patient` (`id`,`staff_id`,`firstname`, `lastname`, `sex`, `date_of_birth`, `hospital_number`, `date_of_registration`) VALUES (NULL, ?, ?, ?, ?, ?, ?, ?)"[
-      (req.body.staff_id,
+    "INSERT INTO `patient` (`id`,`staff_id`,`firstname`, `lastname`, `sex`, `date_of_birth`, `hospital_number`, `date_of_registration`) VALUES (NULL, ?, ?, ?, ?, ?, ?, ?)",
+    [
+      req.body.staff_id,
       req.body.firstname,
       req.body.lastname,
       req.body.sex,
       req.body.date_of_birth,
       req.body.hospital_number,
-      req.body.date_of_registration)
+      req.body.date_of_registration,
     ],
     (err, result) => {
+      console.error
       res.json(result.affectedRows)
     }
   )
