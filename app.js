@@ -50,15 +50,23 @@ app.post("/login",(req, res) => {
 
   db.query("SELECT * FROM staff WHERE username=? AND password=?",
       [username, password], (err, rows) => {
+        if(err){
+          return res.status(500).json({
+            success:'fail',
+            message:'Invalid username and password',
+            staff:null,
+          });
+        }
         if (rows.length==0) {
           return res
             .status(400)
             .json({ 
               success: 'fail', 
-              message: "Invalid username and password",
+              message: 'Invalid username and password',
               staff:null,
-            })
+            });
         }
+
         const userData = rows[0]
     
         return res
