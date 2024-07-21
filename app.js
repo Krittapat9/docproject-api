@@ -27,8 +27,6 @@ app.get("/staff", (req, res) => {
   })
 })
 
-
-
 app.post("/staff", (req, res) => {
   db.query(
     "INSERT INTO `staff` (`id`, `username`, `firstname`, `lastname`, `password`) VALUES (NULL, ?, ?, ?, ?)",
@@ -37,7 +35,6 @@ app.post("/staff", (req, res) => {
       req.body.firstname,
       req.body.lastname,
       req.body.password,
-    
     ],
     (err, result) => {
       res.json(result.affectedRows)
@@ -45,30 +42,29 @@ app.post("/staff", (req, res) => {
   )
 })
 
-app.post("/login",(req, res) => {
+app.post("/login", (req, res) => {
   const { username, password } = req.body
 
-  db.query("SELECT * FROM staff WHERE username=? AND password=?",
-      [username, password], (err, rows) => {
-        if (rows.length==0) {
-          return res
-            .status(400)
-            .json({ 
-              success: 'fail', 
-              message: "Invalid username and password",
-              staff:null,
-            })
-        }
-        const userData = rows[0]
-    
-        return res
-            .status(200)
-            .json({ 
-              success: 'success', 
-              message: "login successful",
-              staff:userData,
-            })
-  })
+  db.query(
+    "SELECT * FROM staff WHERE username=? AND password=?",
+    [username, password],
+    (err, rows) => {
+      if (rows.length == 0) {
+        return res.status(400).json({
+          success: "fail",
+          message: "Invalid username and password",
+          staff: null,
+        })
+      }
+      const userData = rows[0]
+
+      return res.status(200).json({
+        success: "success",
+        message: "login successful",
+        staff: userData,
+      })
+    }
+  )
 })
 
 //patient
