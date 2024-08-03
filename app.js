@@ -49,7 +49,7 @@ app.post("/login", (req, res) => {
       [username, password], (err, rows) => {
         if(err){
           return res.status(500).json({
-            success:'fail',
+            status:'fail',
             message:'Invalid username and password',
             staff:null,
           });
@@ -58,7 +58,7 @@ app.post("/login", (req, res) => {
           return res
             .status(400)
             .json({ 
-              success: 'fail', 
+              status: 'fail', 
               message: 'Invalid username and password',
               staff:null,
             });
@@ -69,7 +69,7 @@ app.post("/login", (req, res) => {
         return res
             .status(200)
             .json({ 
-              success: 'success', 
+              status: 'success', 
               message: "login successful",
               staff:userData,
             })
@@ -85,7 +85,7 @@ app.get("/patient", (req, res) => {
 
 app.post("/patient", (req, res) => {
   db.query(
-    "INSERT INTO `patient` (`id`,`staff_id`,`firstname`, `lastname`, `sex`, `date_of_birth`, `hospital_number`, `date_of_registration`) VALUES (NULL, ?, ?, ?, ?, ?, ?, ?)",
+    "INSERT INTO `patient` (`id`,`staff_id`,`firstname`, `lastname`, `sex`, `date_of_birth`, `hospital_number`, `date_of_registration`) VALUES (NULL, ?, ?, ?, ?, ?, ?, now())",
     [
       req.body.staff_id,
       req.body.firstname,
