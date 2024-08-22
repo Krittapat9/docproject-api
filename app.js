@@ -71,6 +71,7 @@ app.delete("/staff/:id", (req, res) => {
 app.post("/login", (req, res) => {
   const { username, password } = req.body
 
+<<<<<<< HEAD
   db.query(
     "SELECT * FROM staff WHERE username=? AND password=?",
     [username, password],
@@ -99,6 +100,37 @@ app.post("/login", (req, res) => {
       })
     }
   )
+=======
+  db.query("SELECT * FROM staff WHERE username=? AND password=?",
+      [username, password], (err, rows) => {
+        if(err){
+          return res.status(500).json({
+            status:'fail',
+            message:'Invalid username and password',
+            staff:null,
+          });
+        }
+        if (rows.length==0) {
+          return res
+            .status(400)
+            .json({ 
+              status: 'fail', 
+              message: 'Invalid username and password',
+              staff:null,
+            });
+        }
+
+        const userData = rows[0]
+    
+        return res
+            .status(200)
+            .json({ 
+              status: 'success', 
+              message: "login successful",
+              staff:userData,
+            })
+  })
+>>>>>>> 5369cfea2e246c108012b51b1edce3c2dde02ca8
 })
 
 //patient
