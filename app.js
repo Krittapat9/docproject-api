@@ -1,5 +1,6 @@
 const express = require("express")
 const mysql = require("mysql")
+const util = require("util")
 const app = express()
 const port = 3000
 
@@ -16,10 +17,11 @@ db.getConnection((err, connection) => {
   console.log(err, connection)
 })
 
+const queryAsync = util.promisify(db.query).bind(db)
+
 app.get("/", (req, res) => {
   res.send("Hello World!")
 })
-
 
 //staff
 app.get("/staff", (req, res) => {
@@ -59,49 +61,43 @@ app.put("/staff/:id", (req, res) => {
 })
 
 app.delete("/staff/:id", (req, res) => {
-  db.query(
-    "DELETE FROM staff WHERE id=?",
-    [req.params.id],
-    (err, result) => {
-      res.json(result.affectedRows)
-    }
-  )
+  db.query("DELETE FROM staff WHERE id=?", [req.params.id], (err, result) => {
+    res.json(result.affectedRows)
+  })
 })
 
 app.post("/login", (req, res) => {
   const { username, password } = req.body
 
-  db.query("SELECT * FROM staff WHERE username=? AND password=?",
-    [username, password], (err, rows) => {
+  db.query(
+    "SELECT * FROM staff WHERE username=? AND password=?",
+    [username, password],
+    (err, rows) => {
       if (err) {
         return res.status(500).json({
-          status: 'fail',
-          message: 'Invalid username and password',
+          status: "fail",
+          message: "Invalid username and password",
           staff: null,
-        });
+        })
       }
       if (rows.length == 0) {
-        return res
-          .status(400)
-          .json({
-            status: 'fail',
-            message: 'Invalid username and password',
-            staff: null,
-          });
+        return res.status(400).json({
+          status: "fail",
+          message: "Invalid username and password",
+          staff: null,
+        })
       }
 
       const userData = rows[0]
 
-      return res
-        .status(200)
-        .json({
-          status: 'success',
-          message: "login successful",
-          staff: userData,
-        })
-    })
+      return res.status(200).json({
+        status: "success",
+        message: "login successful",
+        staff: userData,
+      })
+    }
+  )
 })
-
 
 //patient
 //query แสดงการชื่อนามหมอ อันแรกแสดงแค่ staff id
@@ -113,16 +109,19 @@ app.get("/patient", (req, res) => {
 })
 
 app.get("/patient/:id", (req, res) => {
-  db.query("select * from patient where id = ?", [req.params.id], (err, rows) => {
-    if (rows.length == 1) {
-      res.json(rows[0])
+  db.query(
+    "select * from patient where id = ?",
+    [req.params.id],
+    (err, rows) => {
+      if (rows.length == 1) {
+        res.json(rows[0])
+      } else {
+        res.status(404).json({
+          message: "patient not found",
+        })
+      }
     }
-    else {
-      res.status(404).json({
-        message: "patient not found",
-      })
-    }
-  })
+  )
 })
 
 app.post("/patient", (req, res) => {
@@ -139,32 +138,34 @@ app.post("/patient", (req, res) => {
     ],
     (err, result) => {
       if (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Error inserting patient data' });
-        return;
+        console.error(err)
+        res.status(500).json({ error: "Error inserting patient data" })
+        return
       }
-      const patientId = result.insertId;
+      const patientId = result.insertId
 
       db.query(
         "SELECT * FROM patient WHERE id = ?",
         [patientId],
         (err, result) => {
           if (err || result.length != 1) {
-            console.error(err);
+            console.error(err)
             res.status(404).json({
               message: "patient not found",
-            });
-            return;
+            })
+            return
           }
-          res.json(result[0]);
-        })
+          res.json(result[0])
+        }
+      )
     }
   )
 })
 
 //get patient surgery
 app.get("/patient/:patient_id/surgery", (req, res) => {
-  db.query(`
+  db.query(
+    `
     SELECT s.id as id,s.patient_id, s.surgery_type_note_other,s.disease_note_other,s.surgery_type_id as surgery_type_id, s.disease_id as disease_id, d.name as disease_name, st.name as surgery_type_name, s.date_of_surgery as date_of_surgery, s.staff_id,sf.username as username, sf.firstname as staff_firstname, sf.lastname as staff_lastname, sm.id as stoma_id, smt.name as stoma_type_name, sm.stoma_type_note_other as stoma_type_note_other
     FROM surgery s 
     LEFT JOIN surgery_type st on s.surgery_type_id = st.id
@@ -174,19 +175,21 @@ app.get("/patient/:patient_id/surgery", (req, res) => {
     LEFT JOIN stoma_type smt on sm.stoma_type_id = smt.id
     WHERE s.patient_id=?
     ORDER BY date_of_surgery DESC 
-  `, [req.params.patient_id], (err, rows) => {
-    for (let i = 0; i < rows.length; i++) {
-      rows[i].case_id = rows.length - i
+  `,
+    [req.params.patient_id],
+    (err, rows) => {
+      for (let i = 0; i < rows.length; i++) {
+        rows[i].case_id = rows.length - i
+      }
+      res.json(rows)
     }
-    res.json(rows)
-  })
+  )
 })
-
-
 
 //post patient surgery
 app.post("/patient/:patient_id/surgery", (req, res) => {
-  db.query("INSERT INTO `surgery` (`id`, `patient_id`, `surgery_type_id`, `surgery_type_note_other`, `disease_id`, `disease_note_other`, `date_of_surgery`, `staff_id`, `stoma_id`) VALUES (NULL, ?, ? ,? ,? ,?, ?, ?, NULL)",
+  db.query(
+    "INSERT INTO `surgery` (`id`, `patient_id`, `surgery_type_id`, `surgery_type_note_other`, `disease_id`, `disease_note_other`, `date_of_surgery`, `staff_id`, `stoma_id`) VALUES (NULL, ?, ? ,? ,? ,?, ?, ?, NULL)",
     [
       req.params.patient_id,
       req.body.surgery_type_id,
@@ -195,34 +198,32 @@ app.post("/patient/:patient_id/surgery", (req, res) => {
       req.body.disease_note_other,
       req.body.date_of_surgery,
       req.body.staff_id,
-
     ],
     (err, result) => {
       if (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Error inserting patient data' });
-        return;
+        console.error(err)
+        res.status(500).json({ error: "Error inserting patient data" })
+        return
       }
-      const surgeryId = result.insertId;
+      const surgeryId = result.insertId
 
       db.query(
         "SELECT * FROM surgery WHERE id = ?",
-        [surgeryId], (err, result) => {
+        [surgeryId],
+        (err, result) => {
           if (err || result.length != 1) {
-            console.error(err);
+            console.error(err)
             res.status(404).json({
               message: "surgery not found",
-            });
-            return;
+            })
+            return
           }
-          res.json(result[0]);
-        })
-
+          res.json(result[0])
+        }
+      )
     }
   )
 })
-
-
 
 app.put("/patient/:id", (req, res) => {
   db.query(
@@ -243,13 +244,9 @@ app.put("/patient/:id", (req, res) => {
 })
 
 app.delete("/patient/:id", (req, res) => {
-  db.query(
-    "DELETE FROM patient WHERE id=?",
-    [req.params.id],
-    (err, result) => {
-      res.json(result.affectedRows)
-    }
-  )
+  db.query("DELETE FROM patient WHERE id=?", [req.params.id], (err, result) => {
+    res.json(result.affectedRows)
+  })
 })
 
 //disease
@@ -258,8 +255,6 @@ app.get("/disease", (req, res) => {
     res.json(rows)
   })
 })
-
-
 
 app.post("/disease", (req, res) => {
   db.query(
@@ -282,15 +277,10 @@ app.put("/disease/:id", (req, res) => {
 })
 
 app.delete("/disease/:id", (req, res) => {
-  db.query(
-    "DELETE FROM disease WHERE id=?",
-    [req.params.id],
-    (err, result) => {
-      res.json(result.affectedRows)
-    }
-  )
+  db.query("DELETE FROM disease WHERE id=?", [req.params.id], (err, result) => {
+    res.json(result.affectedRows)
+  })
 })
-
 
 //appliances
 app.get("/appliances", (req, res) => {
@@ -300,16 +290,19 @@ app.get("/appliances", (req, res) => {
 })
 
 app.get("/appliances/:id", (req, res) => {
-  db.query("select * from appliances where id = ?", [req.params.id], (err, rows) => {
-    if (rows.length == 1) {
-      res.json(rows[0])
+  db.query(
+    "select * from appliances where id = ?",
+    [req.params.id],
+    (err, rows) => {
+      if (rows.length == 1) {
+        res.json(rows[0])
+      } else {
+        res.status(404).json({
+          message: "appliances not found",
+        })
+      }
     }
-    else {
-      res.status(404).json({
-        message: "appliances not found",
-      })
-    }
-  })
+  )
 })
 
 app.post("/appliances", (req, res) => {
@@ -357,7 +350,6 @@ app.delete("/appliances/:id", (req, res) => {
   )
 })
 
-
 //surgery
 app.get("/surgery/type", (req, res) => {
   db.query("select * from surgery_type ", (err, rows) => {
@@ -365,6 +357,44 @@ app.get("/surgery/type", (req, res) => {
   })
 })
 
+//surgery_id
+
+app.get("/surgery/:id", async (req, res) => {
+  let rowsSurgery = await queryAsync(
+    `
+    SELECT s.id as id,s.patient_id, s.surgery_type_note_other,s.disease_note_other,s.surgery_type_id as surgery_type_id, s.disease_id as disease_id, d.name as disease_name, st.name as surgery_type_name, s.date_of_surgery as date_of_surgery, s.staff_id,sf.username as username, sf.firstname as staff_firstname, sf.lastname as staff_lastname, sm.id as stoma_id, smt.name as stoma_type_name, sm.stoma_type_note_other as stoma_type_note_other
+    FROM surgery s 
+    LEFT JOIN surgery_type st on s.surgery_type_id = st.id
+    LEFT JOIN disease d on s.disease_id = d.id
+    LEFT JOIN staff sf on s.staff_id = sf.id
+    LEFT JOIN stoma sm on s.stoma_id = sm.id
+    LEFT JOIN stoma_type smt on sm.stoma_type_id = smt.id
+    WHERE s.id=?
+    ORDER BY date_of_surgery DESC 
+  `,
+    [req.params.id]
+  )
+  if (rowsSurgery.length == 0) {
+    return res.status(404)
+  }
+  let surgery = rowsSurgery[0]
+
+  let rowsPatient = await queryAsync(`SELECT * FROM patient WHERE id=?`, [
+    surgery.patient_id,
+  ])
+  let patient = rowsPatient[0]
+
+  let rowsMedicalHistory = await queryAsync(
+    `SELECT * FROM medical_history WHERE id=?`,
+    [req.params.id]
+  )
+
+  res.json({
+    patient,
+    surgery,
+    medical_history: rowsMedicalHistory,
+  })
+})
 
 //stoma
 app.get("/stoma/type", (req, res) => {
@@ -376,22 +406,15 @@ app.get("/stoma/type", (req, res) => {
 app.post("/stoma", (req, res) => {
   db.query(
     "INSERT INTO `stoma` (`id`, `stoma_type_id`, `stoma_type_note_other`) VALUES (NULL, ?, ?)",
-    [
-      req.body.stoma_type_id,
-      req.body.stoma_type_note_other,
-    ],
+    [req.body.stoma_type_id, req.body.stoma_type_note_other],
     (err, result) => {
       let stoma_id = result.insertId
       db.query(
         "UPDATE `surgery` SET `stoma_id` = ? WHERE `surgery`.`id` = ?",
-        [
-          stoma_id,
-          req.body.surgery_id,
-        ],
+        [stoma_id, req.body.surgery_id],
         (err, result) => {
-          res.json({stoma_id})
+          res.json({ stoma_id })
         }
-
       )
     }
   )
@@ -417,7 +440,8 @@ app.post("/stoma", (req, res) => {
 
 //post medical history
 app.post("/patient/:patient_id/:surgery_id/medical_history", (req, res) => {
-  db.query("INSERT INTO `surgery` (`id`, `staff_id`, `surgery_id`, `datetime_of_medical`, `type_of_diversion_id`, `type_of_diversion_note_other`, `stoma_construction_id`, `stoma_color_id`, `stoma_size_width_mm`, `stoma_size_length_mm`, `stoma_characteristics_id`, `stoma_characteristics_note_other`, `stoma_shape_id`, `stoma_protrusion_id`, `peristomal_skin_id`, `mucocutaneous_suture_line_id`, `mucocutaneous_suture_line_note_other`, `stoma_effluent_id`, `appliances_id`, `medicine_id`) VALUES (NULL, ?, ? ,? ,? , ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+  db.query(
+    "INSERT INTO `surgery` (`id`, `staff_id`, `surgery_id`, `datetime_of_medical`, `type_of_diversion_id`, `type_of_diversion_note_other`, `stoma_construction_id`, `stoma_color_id`, `stoma_size_width_mm`, `stoma_size_length_mm`, `stoma_characteristics_id`, `stoma_characteristics_note_other`, `stoma_shape_id`, `stoma_protrusion_id`, `peristomal_skin_id`, `mucocutaneous_suture_line_id`, `mucocutaneous_suture_line_note_other`, `stoma_effluent_id`, `appliances_id`, `medicine_id`) VALUES (NULL, ?, ? ,? ,? , ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     [
       req.params.surgery_id,
       req.body.staff_id,
@@ -437,34 +461,33 @@ app.post("/patient/:patient_id/:surgery_id/medical_history", (req, res) => {
       req.body.mucocutaneous_suture_line_note_other,
       req.body.stoma_effluent_id,
       req.body.appliances_id,
-      req.body.medicine_id, 
-
+      req.body.medicine_id,
     ],
     (err, result) => {
       if (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Error inserting medical data' });
-        return;
+        console.error(err)
+        res.status(500).json({ error: "Error inserting medical data" })
+        return
       }
-      const medicalId = result.insertId;
+      const medicalId = result.insertId
 
       db.query(
         "SELECT * FROM medical_history WHERE id = ?",
-        [medicalId], (err, result) => {
+        [medicalId],
+        (err, result) => {
           if (err || result.length != 1) {
-            console.error(err);
+            console.error(err)
             res.status(404).json({
               message: "medical not found",
-            });
-            return;
+            })
+            return
           }
-          res.json(result[0]);
-        })
-
+          res.json(result[0])
+        }
+      )
     }
   )
 })
-
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
