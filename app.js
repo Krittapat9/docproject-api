@@ -166,7 +166,7 @@ app.post("/patient", (req, res) => {
 app.get("/patient/:patient_id/surgery", (req, res) => {
   db.query(
     `
-    SELECT s.id as id,s.patient_id, s.surgery_type_note_other,s.disease_note_other,s.surgery_type_id as surgery_type_id, s.disease_id as disease_id, d.name as disease_name, st.name as surgery_type_name, s.date_of_surgery as date_of_surgery, s.staff_id,sf.username as username, sf.firstname as staff_firstname, sf.lastname as staff_lastname, sm.id as stoma_id, smt.name as stoma_type_name, sm.stoma_type_note_other as stoma_type_note_other
+    SELECT s.id as id,s.patient_id, s.surgery_type_note_other,s.disease_note_other,s.surgery_type_id as surgery_type_id, s.disease_id as disease_id, d.name as disease_name, st.name as surgery_type_name, s.date_of_surgery as date_of_surgery, s.staff_id,sf.username as username, sf.firstname as staff_firstname, sf.lastname as staff_lastname, sm.id as stoma_id, smt.name as stoma_type_name, sm.stoma_type_note_other as stoma_type_note_other, s.case_id
     FROM surgery s 
     LEFT JOIN surgery_type st on s.surgery_type_id = st.id
     LEFT JOIN disease d on s.disease_id = d.id
@@ -174,22 +174,27 @@ app.get("/patient/:patient_id/surgery", (req, res) => {
     LEFT JOIN stoma sm on s.stoma_id = sm.id
     LEFT JOIN stoma_type smt on sm.stoma_type_id = smt.id
     WHERE s.patient_id=?
-    ORDER BY date_of_surgery DESC 
+    ORDER BY s.case_id DESC 
   `,
     [req.params.patient_id],
     (err, rows) => {
-      for (let i = 0; i < rows.length; i++) {
-        rows[i].case_id = rows.length - i
-      }
+      
       res.json(rows)
     }
   )
 })
 
 //post patient surgery
-app.post("/patient/:patient_id/surgery", (req, res) => {
+app.post("/patient/:patient_id/surgery", async (req, res) => {
+  let caseId =  await queryAsync(
+    "SELECT max(case_id) as case_id FROM surgery WHERE patient_id = ?",
+    [req.params.patient_id,]
+  )
+
+  caseId[0].case_id++
+ //return res.status(200).json(caseId[0].case_id++)
   db.query(
-    "INSERT INTO `surgery` (`id`, `patient_id`, `surgery_type_id`, `surgery_type_note_other`, `disease_id`, `disease_note_other`, `date_of_surgery`, `staff_id`, `stoma_id`) VALUES (NULL, ?, ? ,? ,? ,?, ?, ?, NULL)",
+    "INSERT INTO `surgery` (`id`, `patient_id`, `surgery_type_id`, `surgery_type_note_other`, `disease_id`, `disease_note_other`, `date_of_surgery`, `staff_id`, `stoma_id`, `case_id`) VALUES (NULL, ?, ? ,? ,? ,?, ?, ?, NULL, ?)",
     [
       req.params.patient_id,
       req.body.surgery_type_id,
@@ -198,6 +203,7 @@ app.post("/patient/:patient_id/surgery", (req, res) => {
       req.body.disease_note_other,
       req.body.date_of_surgery,
       req.body.staff_id,
+      caseId[0].case_id
     ],
     (err, result) => {
       if (err) {
@@ -305,6 +311,8 @@ app.get("/appliances/:id", (req, res) => {
   )
 })
 
+
+
 app.post("/appliances", (req, res) => {
   db.query(
     "INSERT INTO `appliances` (`id`, `type`, `name`, `brand`, `name_flange`, `name_pouch`, `size`) VALUES (NULL, ?, ?, ?, ?, ?, ?)",
@@ -350,6 +358,29 @@ app.delete("/appliances/:id", (req, res) => {
   )
 })
 
+//medicine
+app.get("/medicine", (req, res) => {
+  db.query("select * from medicine ", (err, rows) => {
+    res.json(rows)
+  })
+})
+
+app.get("/medicine/:id", (req, res) => {
+  db.query(
+    "select * from medicine where id = ?",
+    [req.params.id],
+    (err, rows) => {
+      if (rows.length == 1) {
+        res.json(rows[0])
+      } else {
+        res.status(404).json({
+          message: "medicine not found",
+        })
+      }
+    }
+  )
+})
+
 //surgery
 app.get("/surgery/type", (req, res) => {
   db.query("select * from surgery_type ", (err, rows) => {
@@ -359,10 +390,12 @@ app.get("/surgery/type", (req, res) => {
 
 //surgery_id
 
+
 app.get("/surgery/:id", async (req, res) => {
   let rowsSurgery = await queryAsync(
+    // SELECT s.id as id,s.patient_id, s.surgery_type_note_other,s.disease_note_other,s.surgery_type_id as surgery_type_id, s.disease_id as disease_id, d.name as disease_name, st.name as surgery_type_name, s.date_of_surgery as date_of_surgery, s.staff_id,sf.username as username, sf.firstname as staff_firstname, sf.lastname as staff_lastname, sm.id as stoma_id, smt.name as stoma_type_name, sm.stoma_type_note_other as stoma_type_note_other
     `
-    SELECT s.id as id,s.patient_id, s.surgery_type_note_other,s.disease_note_other,s.surgery_type_id as surgery_type_id, s.disease_id as disease_id, d.name as disease_name, st.name as surgery_type_name, s.date_of_surgery as date_of_surgery, s.staff_id,sf.username as username, sf.firstname as staff_firstname, sf.lastname as staff_lastname, sm.id as stoma_id, smt.name as stoma_type_name, sm.stoma_type_note_other as stoma_type_note_other
+    SELECT s.id as id,s.patient_id, s.surgery_type_note_other,s.disease_note_other,s.surgery_type_id as surgery_type_id, s.disease_id as disease_id, d.name as disease_name, st.name as surgery_type_name, s.date_of_surgery as date_of_surgery, s.staff_id,sf.username as username, sf.firstname as staff_firstname, sf.lastname as staff_lastname, sm.id as stoma_id, smt.name as stoma_type_name, sm.stoma_type_note_other as stoma_type_note_other, s.case_id as case_id
     FROM surgery s 
     LEFT JOIN surgery_type st on s.surgery_type_id = st.id
     LEFT JOIN disease d on s.disease_id = d.id
@@ -438,10 +471,12 @@ app.post("/stoma", (req, res) => {
 // LEFT JOIN medicine mc on mh.medicine_id = mc.id
 // WHERE mh.surgery_id=?
 
+
+
 //post medical history
-app.post("/patient/:patient_id/:surgery_id/medical_history", (req, res) => {
+app.post("/surgery/:surgery_id/medical_history", (req, res) => {
   db.query(
-    "INSERT INTO `surgery` (`id`, `staff_id`, `surgery_id`, `datetime_of_medical`, `type_of_diversion_id`, `type_of_diversion_note_other`, `stoma_construction_id`, `stoma_color_id`, `stoma_size_width_mm`, `stoma_size_length_mm`, `stoma_characteristics_id`, `stoma_characteristics_note_other`, `stoma_shape_id`, `stoma_protrusion_id`, `peristomal_skin_id`, `mucocutaneous_suture_line_id`, `mucocutaneous_suture_line_note_other`, `stoma_effluent_id`, `appliances_id`, `medicine_id`) VALUES (NULL, ?, ? ,? ,? , ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "INSERT INTO `surgery` (`id`, `staff_id`, `surgery_id`, `datetime_of_medical`, `type_of_diversion_id`, `type_of_diversion_note_other`, `stoma_construction_id`, `stoma_color_id`, `stoma_size_width_mm`, `stoma_size_length_mm`, `stoma_characteristics_id`, `stoma_characteristics_note_other`, `stoma_shape_id`, `stoma_protrusion_id`, `peristomal_skin_id`, `mucocutaneous_suture_line_id`, `mucocutaneous_suture_line_note_other`, `stoma_effluent_id`, `appliances_id`, `medicine_id`) VALUES (NULL, ?, ? ,now() ,? , ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     [
       req.params.surgery_id,
       req.body.staff_id,
@@ -487,6 +522,69 @@ app.post("/patient/:patient_id/:surgery_id/medical_history", (req, res) => {
       )
     }
   )
+})
+
+//type of diversion
+app.get("/type_of_diversion", (req, res) => {
+  db.query("select * from type_of_diversion ", (err, rows) => {
+    res.json(rows)
+  })
+})
+
+//stoma construction
+app.get("/stoma_construction", (req, res) => {
+  db.query("select * from stoma_construction", (err, rows) => {
+    res.json(rows)
+  })
+})
+
+//stoma color
+app.get("/stoma_color", (req, res) => {
+  db.query("select * from stoma_color", (err, rows) => {
+    res.json(rows)
+  })
+})
+
+//stoma characteristics
+app.get("/stoma_characteristics", (req, res) => {
+  db.query("select * from stoma_characteristics", (err, rows) => {
+    res.json(rows)
+  })
+})
+
+//stoma shape
+app.get("/stoma_shape", (req, res) => {
+  db.query("select * from stoma_shape", (err, rows) => {
+    res.json(rows)
+  })
+})
+
+//stoma protrusion
+app.get("/stoma_protrusion", (req, res) => {
+  db.query("select * from stoma_protrusion", (err, rows) => {
+    res.json(rows)
+  })
+})
+
+//peristomal skin
+app.get("/peristomal_skin", (req, res) => {
+  db.query("select * from peristomal_skin", (err, rows) => {
+    res.json(rows)
+  })
+})
+
+//mucocutaneous suture line
+app.get("/mucocutaneous_suture_line", (req, res) => {
+  db.query("select * from mucocutaneous_suture_line", (err, rows) => {
+    res.json(rows)
+  })
+})
+
+//stoma effluent
+app.get("/stoma_effluent", (req, res) => {
+  db.query("select * from stoma_effluent", (err, rows) => {
+    res.json(rows)
+  })
 })
 
 app.listen(port, () => {
