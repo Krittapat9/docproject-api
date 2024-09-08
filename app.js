@@ -101,6 +101,36 @@ app.post("/login", (req, res) => {
   )
 })
 
+//ต้องมี endpoint login patient ส่ง email ของ patient อีก endpoint เอาไว้ verifly otp เก้บใน db , เพิ่มหน้า patient ทุกอัน
+//login_patient
+app.post('/login_patient', async (req, res) => {
+  const { email } = req.body;
+  
+  if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+  }
+
+  // สร้าง OTP เก็บใน db
+  const otp = generateOTP();
+  console.log(`Generated OTP for ${email}: ${otp}`);
+
+  // ส่ง OTP ไปอีเมลผู้ป่วย
+  const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Your OTP Code',
+      text: `Your OTP code is ${otp}. Please use this code to verify your email.`,
+  };
+
+  try {
+      await transporter.sendMail(mailOptions);
+      return res.status(200).json({ message: 'OTP sent successfully' });
+  } catch (error) {
+      console.error('Error sending OTP:', error);
+      return res.status(500).json({ error: 'Failed to send OTP' });
+  }
+});
+
 //patient
 //query แสดงการชื่อนามหมอ อันแรกแสดงแค่ staff id
 //select pt.id as id, pt.staff_id, pt.firstname, pt.lastname, pt.sex, pt.date_of_birth, pt.hospital_number, pt.date_of_registration, sf.firstname as staff_firstname, sf.lastname as staff_lastname FROM patient pt JOIN staff sf on pt.staff_id = sf.id;
