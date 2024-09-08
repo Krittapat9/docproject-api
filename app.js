@@ -3,6 +3,8 @@ const mysql = require("mysql")
 const util = require("util")
 const app = express()
 const port = 3000
+const nodemailer = require("nodemailer")
+const smtpTransport = require("nodemailer-smtp-transport")
 
 app.use(express.json())
 app.use(express.urlencoded())
@@ -178,7 +180,6 @@ app.get("/patient/:patient_id/surgery", (req, res) => {
   `,
     [req.params.patient_id],
     (err, rows) => {
-      
       res.json(rows)
     }
   )
@@ -186,13 +187,13 @@ app.get("/patient/:patient_id/surgery", (req, res) => {
 
 //post patient surgery
 app.post("/patient/:patient_id/surgery", async (req, res) => {
-  let caseId =  await queryAsync(
+  let caseId = await queryAsync(
     "SELECT max(case_id) as case_id FROM surgery WHERE patient_id = ?",
-    [req.params.patient_id,]
+    [req.params.patient_id]
   )
 
   caseId[0].case_id++
- //return res.status(200).json(caseId[0].case_id++)
+  //return res.status(200).json(caseId[0].case_id++)
   db.query(
     "INSERT INTO `surgery` (`id`, `patient_id`, `surgery_type_id`, `surgery_type_note_other`, `disease_id`, `disease_note_other`, `date_of_surgery`, `staff_id`, `stoma_id`, `case_id`) VALUES (NULL, ?, ? ,? ,? ,?, ?, ?, NULL, ?)",
     [
@@ -203,7 +204,7 @@ app.post("/patient/:patient_id/surgery", async (req, res) => {
       req.body.disease_note_other,
       req.body.date_of_surgery,
       req.body.staff_id,
-      caseId[0].case_id
+      caseId[0].case_id,
     ],
     (err, result) => {
       if (err) {
@@ -311,8 +312,6 @@ app.get("/appliances/:id", (req, res) => {
   )
 })
 
-
-
 app.post("/appliances", (req, res) => {
   db.query(
     "INSERT INTO `appliances` (`id`, `type`, `name`, `brand`, `name_flange`, `name_pouch`, `size`) VALUES (NULL, ?, ?, ?, ?, ?, ?)",
@@ -389,7 +388,6 @@ app.get("/surgery/type", (req, res) => {
 })
 
 //surgery_id
-
 
 app.get("/surgery/:id", async (req, res) => {
   let rowsSurgery = await queryAsync(
@@ -470,8 +468,6 @@ app.post("/stoma", (req, res) => {
 // LEFT JOIN appliances app on mh.appliances_id = app.id
 // LEFT JOIN medicine mc on mh.medicine_id = mc.id
 // WHERE mh.surgery_id=?
-
-
 
 //post medical history
 app.post("/surgery/:surgery_id/medical_history", (req, res) => {
@@ -586,6 +582,43 @@ app.get("/stoma_effluent", (req, res) => {
     res.json(rows)
   })
 })
+
+//sendmail
+app.get("/test", (req, res) => {
+  const transporter = nodemailer.createTransport(
+    smtpTransport({
+      service: "Outlook365",
+      host: "smtp.office365.com",
+      secureConnection: false,
+      port: 587,
+      tls: {
+        ciphers: "SSLv3",
+        rejectUnauthorized: false,
+      },
+      auth: {
+        user: "siravitkrittapat@outlook.com",
+        pass: "appproject123456",
+      },
+    })
+  )
+
+  const mailOptions = {
+    from: "siravitkrittapat@outlook.com",
+    to: "siravotpookahoot@gmail.com",
+    subject: "Sending Email using Node.js",
+    text: "That was easy!",
+  }
+
+  transporter.sendMail(mailOptions, function (error, info) {
+    if (error) {
+      console.log(error)
+    } else {
+      console.log("Email sent: " + info.response)
+    }
+  })
+})
+
+//ต้องมี endpoint login patient ส่ง email ของ patient อีก endpoint เอาไว้ verifly otp เก้บใน db , เพิ่มหน้า patiemt ทุกอัน
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
