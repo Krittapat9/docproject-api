@@ -100,6 +100,35 @@ app.post("/login", (req, res) => {
     }
   )
 })
+//ต้องมี endpoint login patient ส่ง email ของ patient อีก endpoint เอาไว้ verifly otp เก้บใน db , เพิ่มหน้า patiemt ทุกอัน
+//login patient put post endpoint ที่เข้าไปเขียนของผู้ป่วย ส่งotp แล้วไปเก็บใน db แล้วเช้ค if else ,error
+app.post('/login_patient', async (req, res) => {
+  const { email } = req.body;
+  
+  if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+  }
+
+  // สร้าง OTP และเก็บไว้ใน db
+  const otp = generateOTP();
+  console.log(`Generated OTP for ${email}: ${otp}`);
+
+  // ส่ง OTP ไปเมลผู้ป่วย
+  const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Your OTP Code',
+      text: `Your OTP code is ${otp}. Please use this code to verify your email.`,
+  };
+
+  try {
+      await transporter.sendMail(mailOptions);
+      return res.status(200).json({ message: 'OTP sent successfully' });
+  } catch (error) {
+      console.error('Error sending OTP:', error);
+      return res.status(500).json({ error: 'Failed to send OTP' });
+  }
+});
 
 //patient
 //query แสดงการชื่อนามหมอ อันแรกแสดงแค่ staff id
@@ -618,7 +647,7 @@ app.get("/test", (req, res) => {
   })
 })
 
-//ต้องมี endpoint login patient ส่ง email ของ patient อีก endpoint เอาไว้ verifly otp เก้บใน db , เพิ่มหน้า patiemt ทุกอัน
+
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
