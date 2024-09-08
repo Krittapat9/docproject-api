@@ -128,7 +128,7 @@ app.get("/patient/:id", (req, res) => {
 
 app.post("/patient", (req, res) => {
   db.query(
-    "INSERT INTO `patient` (`id`,`staff_id`,`firstname`, `lastname`, `sex`, `date_of_birth`, `hospital_number`, `date_of_registration`) VALUES (NULL, ?, ?, ?, ?, ?, ?, now())",
+    "INSERT INTO `patient` (`id`,`staff_id`,`firstname`, `lastname`, `sex`, `date_of_birth`, `hospital_number`, `date_of_registration`, `email`) VALUES (NULL, ?, ?, ?, ?, ?, ?, now(), ?)",
     [
       req.body.staff_id,
       req.body.firstname,
@@ -137,6 +137,7 @@ app.post("/patient", (req, res) => {
       req.body.date_of_birth,
       req.body.hospital_number,
       req.body.date_of_registration,
+      req.body.email
     ],
     (err, result) => {
       if (err) {
@@ -472,7 +473,7 @@ app.post("/stoma", (req, res) => {
 //post medical history
 app.post("/surgery/:surgery_id/medical_history", (req, res) => {
   db.query(
-    "INSERT INTO `surgery` (`id`, `staff_id`, `surgery_id`, `datetime_of_medical`, `type_of_diversion_id`, `type_of_diversion_note_other`, `stoma_construction_id`, `stoma_color_id`, `stoma_size_width_mm`, `stoma_size_length_mm`, `stoma_characteristics_id`, `stoma_characteristics_note_other`, `stoma_shape_id`, `stoma_protrusion_id`, `peristomal_skin_id`, `mucocutaneous_suture_line_id`, `mucocutaneous_suture_line_note_other`, `stoma_effluent_id`, `appliances_id`, `medicine_id`) VALUES (NULL, ?, ? ,now() ,? , ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "INSERT INTO `surgery` (`id`, `staff_id`, `surgery_id`, `datetime_of_medical`, `type_of_diversion_id`, `type_of_diversion_note_other`, `stoma_construction_id`, `stoma_color_id`, `stoma_size_width_mm`, `stoma_size_length_mm`, `stoma_characteristics_id`, `stoma_characteristics_note_other`, `stoma_shape_id`, `stoma_protrusion_id`, `peristomal_skin_id`, `mucocutaneous_suture_line_id`, `mucocutaneous_suture_line_note_other`, `stoma_effluent_id`, `appliances_id`, `medicine_id`) VALUES (NULL, ?, ? ,? ,? , ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     [
       req.params.surgery_id,
       req.body.staff_id,
@@ -618,7 +619,7 @@ app.get("/test", (req, res) => {
   })
 })
 
-//ต้องมี endpoint login patient ส่ง email ของ patient อีก endpoint เอาไว้ verifly otp เก้บใน db , เพิ่มหน้า patiemt ทุกอัน
+//ต้องมี endpoint login patient ส่ง email ของ patient อีก endpoint เอาไว้ verifly otp เก้บใน db , เพิ่มหน้า patient ทุกอัน
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
