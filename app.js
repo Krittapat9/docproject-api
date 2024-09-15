@@ -418,6 +418,25 @@ app.get("/surgery/type", (req, res) => {
   })
 })
 
+function queryMedicalHistory(whereColumn) {
+  return `SELECT mh.id as id, mh.staff_id, sf.firstname as staff_firstname, sf.lastname as staff_lastname, mh.surgery_id, mh.datetime_of_medical, mh.type_of_diversion_id as type_of_diversion_id, tod.name as type_of_diversion_name, mh.type_of_diversion_note_other, mh.stoma_construction_id, smcon.name as stoma_construction_name, mh.stoma_color_id, smco.name as stoma_color_name, mh.stoma_size_width_mm, mh.stoma_size_length_mm, mh.stoma_characteristics_id, smcha.name as stoma_characteristics_name, mh.stoma_characteristics_note_other, mh.stoma_shape_id, smsh.name as stoma_shape_name, mh.stoma_protrusion_id, smpro.name as stoma_protrusion_name, mh.peristomal_skin_id, ps.name as peristomal_skin_name, mh.mucocutaneous_suture_line_id, msl.name as mucocutaneous_suture_line_name, mh.mucocutaneous_suture_line_note_other, mh.stoma_effluent_id, sme.name as stoma_effluent_name, mh.appliances_id, app.name as appliances_name, app.type as appliances_type, mh.medicine_id, mc.name as medicine_name
+    FROM medical_history mh
+    LEFT JOIN staff sf on mh.staff_id = sf.id
+    LEFT JOIN surgery s on mh.surgery_id = s.id
+    LEFT JOIN type_of_diversion tod on mh.type_of_diversion_id = tod.id
+    LEFT JOIN stoma_construction smcon on mh.stoma_construction_id = smcon.id
+    LEFT JOIN stoma_color smco on mh.stoma_color_id = smco.id
+    LEFT JOIN stoma_characteristics smcha on mh.stoma_characteristics_id = smcha.id
+    LEFT JOIN stoma_shape smsh on mh.stoma_shape_id = smsh.id
+    LEFT JOIN stoma_protrusion smpro on mh.stoma_protrusion_id = smpro.id
+    LEFT JOIN peristomal_skin ps on mh.peristomal_skin_id = ps.id
+    LEFT JOIN mucocutaneous_suture_line msl on mh.mucocutaneous_suture_line_id = msl.id
+    LEFT JOIN stoma_effluent sme on mh.stoma_effluent_id = sme.id
+    LEFT JOIN appliances app on mh.appliances_id = app.id
+    LEFT JOIN medicine mc on mh.medicine_id = mc.id
+    WHERE mh.${whereColumn}=?`
+}
+
 //surgery_id
 
 app.get("/surgery/:id", async (req, res) => {
@@ -446,10 +465,9 @@ app.get("/surgery/:id", async (req, res) => {
   ])
   let patient = rowsPatient[0]
 
-  let rowsMedicalHistory = await queryAsync(
-    `SELECT * FROM medical_history WHERE surgery_id=?`,
-    [req.params.id]
-  )
+  let rowsMedicalHistory = await queryAsync(queryMedicalHistory("surgery_id"), [
+    req.params.id,
+  ])
 
   res.json({
     patient,
@@ -460,26 +478,9 @@ app.get("/surgery/:id", async (req, res) => {
 
 //medical_history_id
 app.get("/medical_history/:id", async (req, res) => {
-  let rowsMedicalHistory = await queryAsync(
-    `SELECT mh.id as id, mh.staff_id, sf.firstname as staff_firstname, sf.lastname as staff_lastname, mh.surgery_id, mh.datetime_of_medical, mh.type_of_diversion_id as type_of_diversion_id, tod.name as type_of_diversion_name, mh.type_of_diversion_note_other, mh.stoma_construction_id, smcon.name as stoma_construction_name, mh.stoma_color_id, smco.name as stoma_color_name, mh.stoma_size_width_mm, mh.stoma_size_length_mm, mh.stoma_characteristics_id, smcha.name as stoma_characteristics_name, mh.stoma_characteristics_note_other, mh.stoma_shape_id, smsh.name as stoma_shape_name, mh.stoma_protrusion_id, smpro.name as stoma_protrusion_name, mh.peristomal_skin_id, ps.name as peristomal_skin_name, mh.mucocutaneous_suture_line_id, msl.name as mucocutaneous_suture_line_name, mh.mucocutaneous_suture_line_note_other, mh.stoma_effluent_id, sme.name as stoma_effluent_name, mh.appliances_id, app.name as appliances_name, app.type as appliances_type, mh.medicine_id, mc.name as medicine_name
-    FROM medical_history mh
-    LEFT JOIN staff sf on mh.staff_id = sf.id
-    LEFT JOIN surgery s on mh.surgery_id = s.id
-    LEFT JOIN type_of_diversion tod on mh.type_of_diversion_id = tod.id
-    LEFT JOIN stoma_construction smcon on mh.stoma_construction_id = smcon.id
-    LEFT JOIN stoma_color smco on mh.stoma_color_id = smco.id
-    LEFT JOIN stoma_characteristics smcha on mh.stoma_characteristics_id = smcha.id
-    LEFT JOIN stoma_shape smsh on mh.stoma_shape_id = smsh.id
-    LEFT JOIN stoma_protrusion smpro on mh.stoma_protrusion_id = smpro.id
-    LEFT JOIN peristomal_skin ps on mh.peristomal_skin_id = ps.id
-    LEFT JOIN mucocutaneous_suture_line msl on mh.mucocutaneous_suture_line_id = msl.id
-    LEFT JOIN stoma_effluent sme on mh.stoma_effluent_id = sme.id
-    LEFT JOIN appliances app on mh.appliances_id = app.id
-    LEFT JOIN medicine mc on mh.medicine_id = mc.id
-    WHERE mh.id=?`,
-
-    [req.params.id]
-  )
+  let rowsMedicalHistory = await queryAsync(queryMedicalHistory("id"), [
+    req.params.id,
+  ])
   console.log("rowsMedicalHistory", rowsMedicalHistory)
   if (rowsMedicalHistory.length == 0) {
     return res.status(404)
