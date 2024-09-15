@@ -103,33 +103,33 @@ app.post("/login", (req, res) => {
 
 //ต้องมี endpoint login patient ส่ง email ของ patient อีก endpoint เอาไว้ verifly otp เก้บใน db , เพิ่มหน้า patient ทุกอัน
 //login_patient
-app.post('/login_patient', async (req, res) => {
-  const { email } = req.body;
-  
+app.post("/login_patient", async (req, res) => {
+  const { email } = req.body
+
   if (!email) {
-      return res.status(400).json({ error: 'Email is required' });
+    return res.status(400).json({ error: "Email is required" })
   }
 
   // สร้าง OTP เก็บใน db
-  const otp = generateOTP();
-  console.log(`Generated OTP for ${email}: ${otp}`);
+  const otp = generateOTP()
+  console.log(`Generated OTP for ${email}: ${otp}`)
 
   // ส่ง OTP ไปอีเมลผู้ป่วย
   const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: 'Your OTP Code',
-      text: `Your OTP code is ${otp}. Please use this code to verify your email.`,
-  };
+    from: process.env.EMAIL_USER,
+    to: email,
+    subject: "Your OTP Code",
+    text: `Your OTP code is ${otp}. Please use this code to verify your email.`,
+  }
 
   try {
-      await transporter.sendMail(mailOptions);
-      return res.status(200).json({ message: 'OTP sent successfully' });
+    await transporter.sendMail(mailOptions)
+    return res.status(200).json({ message: "OTP sent successfully" })
   } catch (error) {
-      console.error('Error sending OTP:', error);
-      return res.status(500).json({ error: 'Failed to send OTP' });
+    console.error("Error sending OTP:", error)
+    return res.status(500).json({ error: "Failed to send OTP" })
   }
-});
+})
 
 //patient
 //query แสดงการชื่อนามหมอ อันแรกแสดงแค่ staff id
@@ -167,7 +167,7 @@ app.post("/patient", (req, res) => {
       req.body.date_of_birth,
       req.body.hospital_number,
       req.body.date_of_registration,
-      req.body.email
+      req.body.email,
     ],
     (err, result) => {
       if (err) {
