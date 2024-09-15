@@ -447,7 +447,7 @@ app.get("/surgery/:id", async (req, res) => {
   let patient = rowsPatient[0]
 
   let rowsMedicalHistory = await queryAsync(
-    `SELECT * FROM medical_history WHERE id=?`,
+    `SELECT * FROM medical_history WHERE surgery_id=?`,
     [req.params.id]
   )
 
@@ -482,7 +482,7 @@ app.post("/stoma", (req, res) => {
   )
 })
 
-//medical history
+//medical history info page
 // SELECT mh.id as id, mh.staff_id, sf.firstname as staff_firstname, sf.lastname as staff_lastname, mh.surgery_id, mh.datetime_of_medical, mh.type_of_diversion_id as type_of_diversion_id, tod.name as type_of_diversion_name, mh.type_of_diversion_note_other, mh.stoma_construction_id, smcon.name as stoma_construction_name, mh.stoma_color_id, smco.name as stoma_color_name, mh.stoma_size_width_mm, mh.stoma_size_length_mm, mh.stoma_characteristics_id, smcha.name as stoma_characteristics_name, mh.stoma_characteristics_note_other, mh.stoma_shape_id, smsh.name as stoma_shape_name, mh.stoma_protrusion_id, smpro.name as stoma_protrusion_name, mh.peristomal_skin_id, ps.name as peristomal_skin_name, mh.mucocutaneous_suture_line_id, msl.name as mucocutaneous_suture_line_name, mh.mucocutaneous_suture_line_note_other, mh.stoma_effluent_id, sme.name as stoma_effluent_name, mh.appliances_id, app.name as appliances_name, app.type as appliances_type, mh.medicine_id, mc.name as medicine_name
 // FROM medical_history mh
 // LEFT JOIN staff sf on mh.staff_id = sf.id
@@ -502,11 +502,12 @@ app.post("/stoma", (req, res) => {
 
 //post medical history
 app.post("/surgery/:surgery_id/medical_history", (req, res) => {
+  console.log(req.params,req.body);
   db.query(
-    "INSERT INTO `surgery` (`id`, `staff_id`, `surgery_id`, `datetime_of_medical`, `type_of_diversion_id`, `type_of_diversion_note_other`, `stoma_construction_id`, `stoma_color_id`, `stoma_size_width_mm`, `stoma_size_length_mm`, `stoma_characteristics_id`, `stoma_characteristics_note_other`, `stoma_shape_id`, `stoma_protrusion_id`, `peristomal_skin_id`, `mucocutaneous_suture_line_id`, `mucocutaneous_suture_line_note_other`, `stoma_effluent_id`, `appliances_id`, `medicine_id`, `created_at`) VALUES (NULL, ?, ? ,? ,? , ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now())",
+    "INSERT INTO `medical_history` (`id`, `staff_id`, `surgery_id`, `datetime_of_medical`, `type_of_diversion_id`, `type_of_diversion_note_other`, `stoma_construction_id`, `stoma_color_id`, `stoma_size_width_mm`, `stoma_size_length_mm`, `stoma_characteristics_id`, `stoma_characteristics_note_other`, `stoma_shape_id`, `stoma_protrusion_id`, `peristomal_skin_id`, `mucocutaneous_suture_line_id`, `mucocutaneous_suture_line_note_other`, `stoma_effluent_id`, `appliances_id`, `medicine_id`, `created_at`) VALUES (NULL, ?, ? ,? ,? , ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now())",
     [
-      req.params.surgery_id,
       req.body.staff_id,
+      req.params.surgery_id,
       req.body.datetime_of_medical,
       req.body.type_of_diversion_id,
       req.body.type_of_diversion_note_other,
@@ -532,6 +533,8 @@ app.post("/surgery/:surgery_id/medical_history", (req, res) => {
         return
       }
       const medicalId = result.insertId
+
+      console.log("medicalid",medicalId);
 
       db.query(
         "SELECT * FROM medical_history WHERE id = ?",
