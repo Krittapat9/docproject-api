@@ -195,6 +195,44 @@ app.post("/patient", (req, res) => {
   )
 })
 
+app.put("/patient/:id", (req, res) => {
+  db.query(
+    "UPDATE patient SET staff_id=?, firstname=?, lastname=?, sex=?, date_of_birth=?, hospital_number=? WHERE id=?",
+    [
+      req.body.staff_id,
+      req.body.firstname,
+      req.body.lastname,
+      req.body.sex,
+      req.body.date_of_birth,
+      req.body.hospital_number,
+      req.params.id,
+    ],
+    (err, result) => {
+      res.json(result.affectedRows)
+    }
+  )
+})
+
+app.delete("/patient/:id", (req, res) => {
+  db.query(
+    "DELETE FROM patient WHERE id=?",
+    [req.params.id],
+    (err, result) => {
+      res.json(result.affectedRows)
+    }
+  )
+})
+app.put("/disease/:id", (req, res) => {
+  db.query(
+    "UPDATE disease SET name=? WHERE id=?",
+    [req.body.name, req.params.id],
+    (err, result) => {
+      res.json(result.affectedRows)
+    }
+  )
+})
+
+
 //get patient surgery
 app.get("/patient/:patient_id/surgery", (req, res) => {
   db.query(
@@ -476,6 +514,15 @@ app.get("/surgery/:id", async (req, res) => {
   })
 })
 
+app.delete("/surgery/:id", (req, res) => {
+  db.query(
+    "DELETE FROM surgery WHERE id=?",
+    [req.params.id],
+    (err, result) => {
+      res.json(result.affectedRows)
+    }
+  )
+})
 //medical_history_id
 app.get("/medical_history/:id", async (req, res) => {
   let rowsMedicalHistory = await queryAsync(queryMedicalHistory("id"), [
@@ -535,11 +582,10 @@ app.post("/stoma", (req, res) => {
 app.post("/surgery/:surgery_id/medical_history", (req, res) => {
   console.log(req.params, req.body)
   db.query(
-    "INSERT INTO `medical_history` (`id`, `staff_id`, `surgery_id`, `datetime_of_medical`, `type_of_diversion_id`, `type_of_diversion_note_other`, `stoma_construction_id`, `stoma_color_id`, `stoma_size_width_mm`, `stoma_size_length_mm`, `stoma_characteristics_id`, `stoma_characteristics_note_other`, `stoma_shape_id`, `stoma_protrusion_id`, `peristomal_skin_id`, `mucocutaneous_suture_line_id`, `mucocutaneous_suture_line_note_other`, `stoma_effluent_id`, `appliances_id`, `medicine_id`, `created_at`) VALUES (NULL, ?, ? ,? ,? , ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now())",
+    "INSERT INTO `medical_history` (`id`, `staff_id`, `surgery_id`, `datetime_of_medical`, `type_of_diversion_id`, `type_of_diversion_note_other`, `stoma_construction_id`, `stoma_color_id`, `stoma_size_width_mm`, `stoma_size_length_mm`, `stoma_characteristics_id`, `stoma_characteristics_note_other`, `stoma_shape_id`, `stoma_protrusion_id`, `peristomal_skin_id`, `mucocutaneous_suture_line_id`, `mucocutaneous_suture_line_note_other`, `stoma_effluent_id`, `appliances_id`, `medicine_id`) VALUES (NULL, ?, ? , now(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     [
       req.body.staff_id,
       req.params.surgery_id,
-      req.body.datetime_of_medical,
       req.body.type_of_diversion_id,
       req.body.type_of_diversion_note_other,
       req.body.stoma_construction_id,
@@ -682,8 +728,39 @@ app.get("/test", (req, res) => {
     }
   })
 })
-
 //ต้องมี endpoint login patient ส่ง email ของ patient อีก endpoint เอาไว้ verifly otp เก้บใน db , เพิ่มหน้า patient ทุกอัน
+
+
+app.get("/schedule/staff/:staff_id", async (req,res) => {
+  let scheduleStaff = await queryAsync('select * from work_schedule where staff_id = ?', [
+    req.params.staff_id,
+  ])
+  res.json(scheduleStaff)
+})
+
+app.get("/schedule/patient/:patient_id", async (req,res) => {
+  let schedulePatient = await queryAsync('select * from work_schedule where patient_id = ?', [
+    req.params.patient_id,
+  ])
+  res.json(schedulePatient)
+})
+
+app.post("/schedule",async(req,res) => {
+  let result = await queryAsync("INSERT INTO `work_schedule` (`id`, `staff_id`, `patient_id`, `work_date`,`start_time`, `end_time`, `detail`) VALUES (NULL, ?, ?, ?, ?, ?, ?)",
+    [
+      req.body.staff_id,
+      req.body.patient_id,
+      req.body.work_date,
+      req.body.start_time,
+      req.body.end_time,
+      req.body.detail,
+    ])
+  let insertedSchedule = await queryAsync("SELECT * FROM work_schedule WHERE id = ?",
+        [result.insertId],
+        )
+    res.json(insertedSchedule[0])
+})
+
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
