@@ -135,10 +135,28 @@ app.post("/login_patient", async (req, res) => {
 //query แสดงการชื่อนามหมอ อันแรกแสดงแค่ staff id
 //select pt.id as id, pt.staff_id, pt.firstname, pt.lastname, pt.sex, pt.date_of_birth, pt.hospital_number, pt.date_of_registration, sf.firstname as staff_firstname, sf.lastname as staff_lastname FROM patient pt JOIN staff sf on pt.staff_id = sf.id;
 app.get("/patient", (req, res) => {
-  db.query("select * from patient ", (err, rows) => {
-    res.json(rows)
-  })
-})
+  const {q, start = 0, limit = 10 } = req.query;//รับพารามิเตอร์
+
+  let query = "SELECT * FROM patient";//สร้างคำสั่ง SQL เพื่อดึงข้อมูล
+  let params = [];
+
+  if (q) {
+    query += " WHERE firstname LIKE ? OR lastname LIKE ? OR email LIKE ?";
+    params.push(`%${q}%`, `%${q}%`, `%${q}%`);//ตรวจสอบว่ามีพารามิเตอร์ q หรือไม่ ถ้ามีจะเพิ่มเงื่อนไขการค้นหาตามชื่อหรืออีเมลของผู้ใช้
+  }
+
+  query += " LIMIT ?, ?";//LIMIT: เป็นคำสั่งใน SQL ที่ใช้เพื่อระบุจำนวนแถวสูงสุดที่จะนำมาแสดงผลจากผลลัพธ์ของคำสั่ง SELECT
+  params.push(parseInt(start), parseInt(limit));//เพิ่มข้อจำกัดการแสดงผลตามค่าของ start และ limit เพื่อควบคุมจำนวนข้อมูลที่แสดงผล
+
+  db.query(query, params, (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: "not found patient"});
+    }
+    res.json(rows);
+  });
+});
+
+
 
 app.get("/patient/:id", (req, res) => {
   db.query(
@@ -155,45 +173,92 @@ app.get("/patient/:id", (req, res) => {
     }
   )
 })
-
 app.post("/patient", (req, res) => {
-  db.query(
-    "INSERT INTO `patient` (`id`,`staff_id`,`firstname`, `lastname`, `sex`, `date_of_birth`, `hospital_number`, `date_of_registration`, `email`) VALUES (NULL, ?, ?, ?, ?, ?, ?, now(), ?)",
-    [
-      req.body.staff_id,
-      req.body.firstname,
-      req.body.lastname,
-      req.body.sex,
-      req.body.date_of_birth,
-      req.body.hospital_number,
-      req.body.date_of_registration,
-      req.body.email,
-    ],
-    (err, result) => {
-      if (err) {
-        console.error(err)
-        res.status(500).json({ error: "Error inserting patient data" })
-        return
-      }
-      const patientId = result.insertId
 
-      db.query(
-        "SELECT * FROM patient WHERE id = ?",
-        [patientId],
-        (err, result) => {
-          if (err || result.length != 1) {
-            console.error(err)
-            res.status(404).json({
-              message: "patient not found",
-            })
-            return
-          }
-          res.json(result[0])
-        }
-      )
+  const { staff_id, firstname, lastname, sex, date_of_birth, hospital_number, date_of_registration, email} = req.body;
+
+  //ไว้ใช้เช็ครูปแบบemail
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if(!emailRegex.test(email)) {
+      return res.status(400).json({ error: "wrong email format"});
+  }
+
+  //ไว้ใช้เช็คemailซ้ำในdb
+  db.query("SELECT * FROM patient WHERE email = ?", [email], (err, results) => {
+    if(err) {
+      return res.status(500).json({ error: "server error"});
     }
-  )
-})
+
+    if(results.length > 0) {
+      return res.status(400).json({ error: "This email is already in use."})
+    }
+
+    db.query(
+      "INSERT INTO patient (staff_id, firstname, lastname, sex, date_of_birth, hospital_number, date_of_registration, email) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      [staff_id, firstname, lastname, sex, date_of_birth, hospital_number, date_of_registration, email],
+      (err, results) => {
+        if (err) {
+          return res.status(500).json({ error: "sever error"});
+        }
+
+        const patientId = results.insertId;
+        db.query(
+          "SELECT * FROM patient WHERE id = ?",
+          [patientId],
+          (err, results) => {
+            if (err || results.length !=1) {
+              console.error(err)
+              res.status(404).json({
+                error: "patient not found",
+              });
+              return
+            }
+            res.json(results[0])
+          }
+        );
+       }
+      );
+  });
+});
+
+// app.post("/patient", (req, res) => {
+//   db.query(
+//     "INSERT INTO `patient` (`id`,`staff_id`,`firstname`, `lastname`, `sex`, `date_of_birth`, `hospital_number`, `date_of_registration`, `email`) VALUES (NULL, ?, ?, ?, ?, ?, ?, now(), ?)",
+//     [
+//       req.body.staff_id,
+//       req.body.firstname,
+//       req.body.lastname,
+//       req.body.sex,
+//       req.body.date_of_birth,
+//       req.body.hospital_number,
+//       req.body.date_of_registration,
+//       req.body.email,
+//     ],
+//     (err, result) => {
+//       if (err) {
+//         console.error(err)
+//         res.status(500).json({ error: "Error inserting patient data" })
+//         return
+//       }
+//       const patientId = result.insertId
+
+//       db.query(
+//         "SELECT * FROM patient WHERE id = ?",
+//         [patientId],
+//         (err, result) => {
+//           if (err || result.length != 1) {
+//             console.error(err)
+//             res.status(404).json({
+//               message: "patient not found",
+//             })
+//             return
+//           }
+//           res.json(result[0])
+//         }
+//       )
+//     }
+//   )
+// })
 
 app.put("/patient/:id", (req, res) => {
   db.query(
