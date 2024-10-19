@@ -5,6 +5,7 @@ const app = express()
 const port = 3000
 const nodemailer = require("nodemailer")
 const smtpTransport = require("nodemailer-smtp-transport")
+const { join } = require("path")
 
 app.use(express.json())
 app.use(express.urlencoded())
@@ -101,9 +102,44 @@ app.post("/login", (req, res) => {
   )
 })
 
+app.post("/login_patient", (req, res) => {
+  const {email} = req.body
+
+  db.query(
+    "SELECT * FROM patient WHERE email=?",
+    [email],
+    (err, rows) => {
+      if (err) {
+        return res.status(500).json({
+          status: "fail",
+          message: "Invalid email",
+          patient: null,
+        })
+      }
+      if (rows.length == 0) {
+        return res.status(400).json({
+          status: "fail",
+          message: "Invalid email",
+          patient: null,
+        })
+      }
+
+      const userData = rows[0]
+
+      return res.status(200).json({
+        status: "success",
+        message: "login successful",
+        patient: userData,
+      })
+    }
+  )
+})
+
+
+
 //ต้องมี endpoint login patient ส่ง email ของ patient อีก endpoint เอาไว้ verifly otp เก้บใน db , เพิ่มหน้า patient ทุกอัน
 //login_patient
-app.post("/login_patient", async (req, res) => {
+app.post("/login_patient/otp", async (req, res) => {
   const { email } = req.body
 
   if (!email) {
@@ -137,7 +173,7 @@ app.post("/login_patient", async (req, res) => {
 app.get("/patient", (req, res) => {
   const {q, start = 0, limit = 10 } = req.query;//รับพารามิเตอร์
 
-  let query = "SELECT * FROM patient";//สร้างคำสั่ง SQL เพื่อดึงข้อมูล
+  let query = "select p.* ,sf.firstname as staff_firstname, sf.lastname as staff_lastname from patient p LEFT JOIN staff sf on p.staff_id = sf.id";//สร้างคำสั่ง SQL เพื่อดึงข้อมูล
   let params = [];
 
   if (q) {
@@ -160,7 +196,7 @@ app.get("/patient", (req, res) => {
 
 app.get("/patient/:id", (req, res) => {
   db.query(
-    "select * from patient where id = ?",
+    "select p.* ,sf.firstname as staff_firstname, sf.lastname as staff_lastname from patient p LEFT JOIN staff sf on p.staff_id = sf.id where p.id = ?",
     [req.params.id],
     (err, rows) => {
       if (rows.length == 1) {
@@ -514,6 +550,19 @@ app.get("/medicine/:id", (req, res) => {
   )
 })
 
+app.post("/medicine", (req, res) => {
+  db.query(
+    "INSERT INTO `medicine` (`id`, `name`, `details`) VALUES (NULL, ?, ?)",
+    [
+      req.body.name,
+      req.body.details,
+    ],
+    (err, result) => {
+      res.json(result.affectedRows)
+    }
+  )
+})
+
 //surgery
 app.get("/surgery/type", (req, res) => {
   db.query("select * from surgery_type ", (err, rows) => {
@@ -522,7 +571,7 @@ app.get("/surgery/type", (req, res) => {
 })
 
 function queryMedicalHistory(whereColumn) {
-  return `SELECT mh.id as id, mh.staff_id, sf.firstname as staff_firstname, sf.lastname as staff_lastname, mh.surgery_id, mh.datetime_of_medical, mh.type_of_diversion_id as type_of_diversion_id, tod.name as type_of_diversion_name, mh.type_of_diversion_note_other, mh.stoma_construction_id, smcon.name as stoma_construction_name, mh.stoma_color_id, smco.name as stoma_color_name, mh.stoma_size_width_mm, mh.stoma_size_length_mm, mh.stoma_characteristics_id, smcha.name as stoma_characteristics_name, mh.stoma_characteristics_note_other, mh.stoma_shape_id, smsh.name as stoma_shape_name, mh.stoma_protrusion_id, smpro.name as stoma_protrusion_name, mh.peristomal_skin_id, ps.name as peristomal_skin_name, mh.mucocutaneous_suture_line_id, msl.name as mucocutaneous_suture_line_name, mh.mucocutaneous_suture_line_note_other, mh.stoma_effluent_id, sme.name as stoma_effluent_name, mh.appliances_id, app.name as appliances_name, app.type as appliances_type, mh.medicine_id, mc.name as medicine_name
+  return `SELECT mh.id as id, mh.staff_id, sf.firstname as staff_firstname, sf.lastname as staff_lastname, mh.surgery_id, mh.datetime_of_medical, mh.type_of_diversion_id as type_of_diversion_id, tod.name as type_of_diversion_name, mh.type_of_diversion_note_other, mh.stoma_construction_id, smcon.name as stoma_construction_name, mh.stoma_color_id, smco.name as stoma_color_name, mh.stoma_size_width_mm, mh.stoma_size_length_mm, mh.stoma_characteristics_id, smcha.name as stoma_characteristics_name, mh.stoma_characteristics_note_other, mh.stoma_shape_id, smsh.name as stoma_shape_name, mh.stoma_protrusion_id, smpro.name as stoma_protrusion_name, mh.peristomal_skin_id, ps.name as peristomal_skin_name, mh.mucocutaneous_suture_line_id, msl.name as mucocutaneous_suture_line_name, mh.mucocutaneous_suture_line_note_other, mh.stoma_effluent_id, sme.name as stoma_effluent_name, mh.appliances_id, app.name as appliances_name, app.type as appliances_type, mh.medicine_id, mc.name as medicine_name, mh.case_id
     FROM medical_history mh
     LEFT JOIN staff sf on mh.staff_id = sf.id
     LEFT JOIN surgery s on mh.surgery_id = s.id
@@ -537,7 +586,9 @@ function queryMedicalHistory(whereColumn) {
     LEFT JOIN stoma_effluent sme on mh.stoma_effluent_id = sme.id
     LEFT JOIN appliances app on mh.appliances_id = app.id
     LEFT JOIN medicine mc on mh.medicine_id = mc.id
-    WHERE mh.${whereColumn}=?`
+    WHERE mh.${whereColumn}=?
+    ORDER BY datetime_of_medical DESC`
+    
 }
 
 //surgery_id
@@ -545,8 +596,8 @@ function queryMedicalHistory(whereColumn) {
 app.get("/surgery/:id", async (req, res) => {
   let rowsSurgery = await queryAsync(
     // SELECT s.id as id,s.patient_id, s.surgery_type_note_other,s.disease_note_other,s.surgery_type_id as surgery_type_id, s.disease_id as disease_id, d.name as disease_name, st.name as surgery_type_name, s.date_of_surgery as date_of_surgery, s.staff_id,sf.username as username, sf.firstname as staff_firstname, sf.lastname as staff_lastname, sm.id as stoma_id, smt.name as stoma_type_name, sm.stoma_type_note_other as stoma_type_note_other
-    `
-    SELECT s.id as id,s.patient_id, s.surgery_type_note_other,s.disease_note_other,s.surgery_type_id as surgery_type_id, s.disease_id as disease_id, d.name as disease_name, st.name as surgery_type_name, s.date_of_surgery as date_of_surgery, s.staff_id,sf.username as username, sf.firstname as staff_firstname, sf.lastname as staff_lastname, sm.id as stoma_id, smt.name as stoma_type_name, sm.stoma_type_note_other as stoma_type_note_other, s.case_id as case_id
+ `
+    SELECT s.id as id, s.patient_id, s.surgery_type_note_other, s.disease_note_other, s.surgery_type_id as surgery_type_id, s.disease_id as disease_id, d.name as disease_name, st.name as surgery_type_name, s.date_of_surgery as date_of_surgery, s.staff_id,sf.username as username, sf.firstname as staff_firstname, sf.lastname as staff_lastname, sm.id as stoma_id, smt.name as stoma_type_name, sm.stoma_type_note_other as stoma_type_note_other, s.case_id as case_id
     FROM surgery s 
     LEFT JOIN surgery_type st on s.surgery_type_id = st.id
     LEFT JOIN disease d on s.disease_id = d.id
@@ -644,10 +695,16 @@ app.post("/stoma", (req, res) => {
 // WHERE mh.surgery_id=?
 
 //post medical history
-app.post("/surgery/:surgery_id/medical_history", (req, res) => {
+app.post("/surgery/:surgery_id/medical_history", async(req, res)  => {
+  let caseId = await queryAsync(
+    "SELECT max(case_id) as case_id FROM medical_history WHERE surgery_id = ?",
+    [req.params.surgery_id]
+  )
+
+  caseId[0].case_id++
   console.log(req.params, req.body)
   db.query(
-    "INSERT INTO `medical_history` (`id`, `staff_id`, `surgery_id`, `datetime_of_medical`, `type_of_diversion_id`, `type_of_diversion_note_other`, `stoma_construction_id`, `stoma_color_id`, `stoma_size_width_mm`, `stoma_size_length_mm`, `stoma_characteristics_id`, `stoma_characteristics_note_other`, `stoma_shape_id`, `stoma_protrusion_id`, `peristomal_skin_id`, `mucocutaneous_suture_line_id`, `mucocutaneous_suture_line_note_other`, `stoma_effluent_id`, `appliances_id`, `medicine_id`) VALUES (NULL, ?, ? , now(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "INSERT INTO `medical_history` (`id`, `staff_id`, `surgery_id`, `datetime_of_medical`, `type_of_diversion_id`, `type_of_diversion_note_other`, `stoma_construction_id`, `stoma_color_id`, `stoma_size_width_mm`, `stoma_size_length_mm`, `stoma_characteristics_id`, `stoma_characteristics_note_other`, `stoma_shape_id`, `stoma_protrusion_id`, `peristomal_skin_id`, `mucocutaneous_suture_line_id`, `mucocutaneous_suture_line_note_other`, `stoma_effluent_id`, `appliances_id`, `medicine_id`, `case_id`) VALUES (NULL, ?, ? , now(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     [
       req.body.staff_id,
       req.params.surgery_id,
@@ -667,6 +724,7 @@ app.post("/surgery/:surgery_id/medical_history", (req, res) => {
       req.body.stoma_effluent_id,
       req.body.appliances_id,
       req.body.medicine_id,
+      caseId[0].case_id,
     ],
     (err, result) => {
       if (err) {
@@ -795,10 +853,11 @@ app.get("/test", (req, res) => {
 })
 //ต้องมี endpoint login patient ส่ง email ของ patient อีก endpoint เอาไว้ verifly otp เก้บใน db , เพิ่มหน้า patient ทุกอัน
 
-
-app.get("/schedule/staff/:staff_id", async (req,res) => {
-  let scheduleStaff = await queryAsync('select * from work_schedule where staff_id = ?', [
+// select p.* ,sf.firstname as staff_firstname, sf.lastname as staff_lastname from patient p LEFT JOIN staff sf on p.staff_id = sf.id where p.id = ?
+app.get("/schedule/staff/:staff_id/:workSchedule", async (req,res) => {
+  let scheduleStaff = await queryAsync('select ws.*,p.firstname as patient_firstname, p.lastname as patient_lastname from work_schedule ws LEFT JOIN patient p on ws.patient_id = p.id where ws.staff_id = ? AND ws.work_date = ? ORDER BY ws.start_time ASC', [
     req.params.staff_id,
+    req.params.workSchedule,
   ])
   res.json(scheduleStaff)
 })
@@ -825,6 +884,7 @@ app.post("/schedule",async(req,res) => {
         )
     res.json(insertedSchedule[0])
 })
+
 
 
 app.listen(port, () => {
