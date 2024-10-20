@@ -5,7 +5,7 @@ const app = express()
 const port = 3000
 const nodemailer = require("nodemailer")
 const smtpTransport = require("nodemailer-smtp-transport")
-const { join } = require("path")
+
 
 app.use(express.json())
 app.use(express.urlencoded())
@@ -177,7 +177,7 @@ app.get("/patient", (req, res) => {
   let params = [];
 
   if (q) {
-    query += " WHERE firstname LIKE ? OR lastname LIKE ? OR email LIKE ?";
+    query += " WHERE p.firstname LIKE ? OR p.lastname LIKE ? OR p.email LIKE ?";
     params.push(`%${q}%`, `%${q}%`, `%${q}%`);//ตรวจสอบว่ามีพารามิเตอร์ q หรือไม่ ถ้ามีจะเพิ่มเงื่อนไขการค้นหาตามชื่อหรืออีเมลของผู้ใช้
   }
 
@@ -614,7 +614,7 @@ app.get("/surgery/:id", async (req, res) => {
   }
   let surgery = rowsSurgery[0]
 
-  let rowsPatient = await queryAsync(`SELECT * FROM patient WHERE id=?`, [
+  let rowsPatient = await queryAsync(`select p.* ,sf.firstname as staff_firstname, sf.lastname as staff_lastname from patient p LEFT JOIN staff sf on p.staff_id = sf.id where p.id = ?`, [
     surgery.patient_id,
   ])
   let patient = rowsPatient[0]
@@ -854,10 +854,10 @@ app.get("/test", (req, res) => {
 //ต้องมี endpoint login patient ส่ง email ของ patient อีก endpoint เอาไว้ verifly otp เก้บใน db , เพิ่มหน้า patient ทุกอัน
 
 // select p.* ,sf.firstname as staff_firstname, sf.lastname as staff_lastname from patient p LEFT JOIN staff sf on p.staff_id = sf.id where p.id = ?
-app.get("/schedule/staff/:staff_id/:workSchedule", async (req,res) => {
+app.get("/schedule/staff/:staff_id/:workDate", async (req,res) => {
   let scheduleStaff = await queryAsync('select ws.*,p.firstname as patient_firstname, p.lastname as patient_lastname from work_schedule ws LEFT JOIN patient p on ws.patient_id = p.id where ws.staff_id = ? AND ws.work_date = ? ORDER BY ws.start_time ASC', [
     req.params.staff_id,
-    req.params.workSchedule,
+    req.params.workDate,
   ])
   res.json(scheduleStaff)
 })
