@@ -102,6 +102,49 @@ app.post("/login", (req, res) => {
   )
 })
 
+app.put("/staff/:id/password", (req, res) => {
+  const {old_password, new_password} = req.body
+  const id = req.params.id
+
+  db.query(
+    "SELECT * FROM staff WHERE id=? AND password=?",
+    [id, old_password],
+    (err, rows) => {
+      if (err) {
+        return res.status(500).json({
+          status: "fail",
+          message: "Invalid id and password",
+          staff: null,
+        })
+      }
+      if (rows.length == 0) {
+        return res.status(400).json({
+          status: "fail",
+          message: "Invalid id and password",
+          staff: null,
+        })
+      }
+
+      db.query(
+        "UPDATE staff SET password = ?, first_login = 1 WHERE id = ?",
+        [new_password, id],
+        (err, result) => {
+          //res.json(result.affectedRows)
+        }
+      )
+
+      const userData = rows[0]
+
+      return res.status(200).json({
+        status: "success",
+        message: "successful",
+        staff: userData,
+      })
+    }
+  )
+})
+
+
 app.post("/login_patient", (req, res) => {
   const {email} = req.body
 
@@ -460,11 +503,33 @@ app.delete("/disease/:id", (req, res) => {
 })
 
 //appliances
+// app.get("/appliances", (req, res) => {
+//   db.query("select * from appliances ", (err, rows) => {
+//     res.json(rows)
+//   })
+// })
+
 app.get("/appliances", (req, res) => {
-  db.query("select * from appliances ", (err, rows) => {
-    res.json(rows)
-  })
-})
+  const {q, start = 0, limit = 10 } = req.query;//รับพารามิเตอร์
+
+  let query = "select * from appliances";//สร้างคำสั่ง SQL เพื่อดึงข้อมูล
+  let params = [];
+
+  if (q) {
+    query += " WHERE type LIKE ? OR name LIKE ? OR brand LIKE ? OR name_flange LIKE ? OR name_pouch LIKE? OR size LIKE?";
+    params.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);//ตรวจสอบว่ามีพารามิเตอร์ q หรือไม่ ถ้ามีจะเพิ่มเงื่อนไขการค้นหาตามชื่อหรืออีเมลของผู้ใช้
+  }
+
+  query += " LIMIT ?, ?";//LIMIT: เป็นคำสั่งใน SQL ที่ใช้เพื่อระบุจำนวนแถวสูงสุดที่จะนำมาแสดงผลจากผลลัพธ์ของคำสั่ง SELECT
+  params.push(parseInt(start), parseInt(limit));//เพิ่มข้อจำกัดการแสดงผลตามค่าของ start และ limit เพื่อควบคุมจำนวนข้อมูลที่แสดงผล
+
+  db.query(query, params, (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: "not found appliances"});
+    }
+    res.json(rows);
+  });
+});
 
 app.get("/appliances/:id", (req, res) => {
   db.query(
@@ -557,6 +622,30 @@ app.post("/medicine", (req, res) => {
       req.body.name,
       req.body.details,
     ],
+    (err, result) => {
+      res.json(result.affectedRows)
+    }
+  )
+})
+
+app.put("/medicine/:id", (req, res) => {
+  db.query(
+    "UPDATE medicine SET name=?, detail=? WHERE id=?",
+    [
+      req.body.name,
+      req.body.detail,
+      req.params.id,
+    ],
+    (err, result) => {
+      res.json(result.affectedRows)
+    }
+  )
+})
+
+app.delete("/medicine/:id", (req, res) => {
+  db.query(
+    "DELETE FROM medicine WHERE id=?",
+    [req.params.id],
     (err, result) => {
       res.json(result.affectedRows)
     }
@@ -862,8 +951,23 @@ app.get("/schedule/staff/:staff_id/:workDate", async (req,res) => {
   res.json(scheduleStaff)
 })
 
-app.get("/schedule/patient/:patient_id", async (req,res) => {
-  let schedulePatient = await queryAsync('select * from work_schedule where patient_id = ?', [
+app.get("/appointment/patient/:patient_id", async (req,res) => {
+  let schedulePatient = await queryAsync('select * from work_schedule where patient_id = ? AND work_date >= now()', [
+    req.params.patient_id,
+  ])
+  res.json(schedulePatient)
+})
+
+app.get("/appointment/patient/:patient_id/history", async (req,res) => {
+  let schedulePatient = await queryAsync('select * from work_schedule where patient_id = ? AND work_date < now()', [
+    req.params.patient_id,
+  ])
+  res.json(schedulePatient)
+})
+
+//แจ้งเตือนในapp
+app.get("/appointment/patient/:patient_id/upcoming", async (req,res) => {
+  let schedulePatient = await queryAsync('select * , "" as patient_firstname, "" as patient_lastname from work_schedule where patient_id = ? AND work_date >= date(now()) AND work_date <= date(date_add(now(), INTERVAL 1 day));', [
     req.params.patient_id,
   ])
   res.json(schedulePatient)
