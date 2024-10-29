@@ -5,6 +5,7 @@ const app = express()
 const port = 3000
 const nodemailer = require("nodemailer")
 const smtpTransport = require("nodemailer-smtp-transport")
+const { verify } = require("crypto")
 
 
 app.use(express.json())
@@ -178,6 +179,23 @@ app.post("/login_patient", (req, res) => {
   )
 })
 
+app.post("/otp/verify", (req, res) => {
+  const { email, otp} = req.body
+
+  db.query(
+    "SELECT * FROM patient WHERE email=? AND otp = ? AND otp_expired_at >= now()",
+    [email, otp],
+    (err, rows) => {
+      if(rows.length > 0){
+        return res.json({verify:true})
+      }else{
+        return res.json({verify:false})
+      }
+    }
+  )
+
+})
+
 
 
 //ต้องมี endpoint login patient ส่ง email ของ patient อีก endpoint เอาไว้ verifly otp เก้บใน db , เพิ่มหน้า patient ทุกอัน
@@ -214,7 +232,7 @@ app.post("/login_patient/otp", async (req, res) => {
 //query แสดงการชื่อนามหมอ อันแรกแสดงแค่ staff id
 //select pt.id as id, pt.staff_id, pt.firstname, pt.lastname, pt.sex, pt.date_of_birth, pt.hospital_number, pt.date_of_registration, sf.firstname as staff_firstname, sf.lastname as staff_lastname FROM patient pt JOIN staff sf on pt.staff_id = sf.id;
 app.get("/patient", (req, res) => {
-  const {q, start = 0, limit = 10 } = req.query;//รับพารามิเตอร์
+  const {q, start = 0, limit = 100 } = req.query;//รับพารามิเตอร์
 
   let query = "select p.* ,sf.firstname as staff_firstname, sf.lastname as staff_lastname from patient p LEFT JOIN staff sf on p.staff_id = sf.id";//สร้างคำสั่ง SQL เพื่อดึงข้อมูล
   let params = [];
@@ -951,8 +969,11 @@ app.get("/schedule/staff/:staff_id/:workDate", async (req,res) => {
   res.json(scheduleStaff)
 })
 
+//select ws.*,p.firstname as patient_firstname, p.lastname as patient_lastname from work_schedule ws LEFT JOIN patient p on ws.patient_id = p.id where ws.staff_id = ? AND ws.work_date = ?
+//select * from work_schedule where patient_id = ? AND work_date >= now()
+//select ws.*,p.firstname as patient_firstname, p.lastname as patient_lastname from work_schedule ws LEFT JOIN patient p on ws.patient_id = p.id where ws.patient_id = ? AND ws.work_date >= now()
 app.get("/appointment/patient/:patient_id", async (req,res) => {
-  let schedulePatient = await queryAsync('select * from work_schedule where patient_id = ? AND work_date >= now()', [
+  let schedulePatient = await queryAsync('select ws.*,p.firstname as patient_firstname, p.lastname as patient_lastname from work_schedule ws LEFT JOIN patient p on ws.patient_id = p.id where ws.patient_id = ? AND ws.work_date >= now()', [
     req.params.patient_id,
   ])
   res.json(schedulePatient)
