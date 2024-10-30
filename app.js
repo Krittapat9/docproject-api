@@ -28,11 +28,33 @@ app.get("/", (req, res) => {
 })
 
 //staff
+// app.get("/staff", (req, res) => {
+//   db.query("select * from staff ", (err, rows) => {
+//     res.json(rows)
+//   })
+// })
+
 app.get("/staff", (req, res) => {
-  db.query("select * from staff ", (err, rows) => {
-    res.json(rows)
-  })
-})
+  const {q, start = 0, limit = 50 } = req.query;//รับพารามิเตอร์
+
+  let query = "select * from staff";//สร้างคำสั่ง SQL เพื่อดึงข้อมูล
+  let params = [];
+
+  if (q) {
+    query += " WHERE firstname LIKE ? OR lastname LIKE ?";
+    params.push(`%${q}%`, `%${q}%`);//ตรวจสอบว่ามีพารามิเตอร์ q หรือไม่ ถ้ามีจะเพิ่มเงื่อนไขการค้นหาตามชื่อหรืออีเมลของผู้ใช้
+  }
+
+  query += " LIMIT ?, ?";//LIMIT: เป็นคำสั่งใน SQL ที่ใช้เพื่อระบุจำนวนแถวสูงสุดที่จะนำมาแสดงผลจากผลลัพธ์ของคำสั่ง SELECT
+  params.push(parseInt(start), parseInt(limit));//เพิ่มข้อจำกัดการแสดงผลตามค่าของ start และ limit เพื่อควบคุมจำนวนข้อมูลที่แสดงผล
+
+  db.query(query, params, (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: "not found staff"});
+    }
+    res.json(rows);
+  });
+});
 
 app.post("/staff", (req, res) => {
   db.query(
@@ -48,14 +70,30 @@ app.post("/staff", (req, res) => {
     }
   )
 })
+
+app.get("/staff/:id", (req, res) => {
+  db.query(
+    "select * from staff where id = ?",
+    [req.params.id],
+    (err, rows) => {
+      if (rows.length == 1) {
+        res.json(rows[0])
+      } else {
+        res.status(404).json({
+          message: "staff not found",
+        })
+      }
+    }
+  )
+})
+
 app.put("/staff/:id", (req, res) => {
   db.query(
-    "UPDATE staff SET username=?, firstname=?, lastname=?, password=? WHERE id=?",
+    "UPDATE staff SET username=?, firstname=?, lastname=? WHERE id=?",
     [
       req.body.username,
       req.body.firstname,
       req.body.lastname,
-      req.body.password,
       req.params.id,
     ],
     (err, result) => {
@@ -232,7 +270,7 @@ app.post("/login_patient/otp", async (req, res) => {
 //query แสดงการชื่อนามหมอ อันแรกแสดงแค่ staff id
 //select pt.id as id, pt.staff_id, pt.firstname, pt.lastname, pt.sex, pt.date_of_birth, pt.hospital_number, pt.date_of_registration, sf.firstname as staff_firstname, sf.lastname as staff_lastname FROM patient pt JOIN staff sf on pt.staff_id = sf.id;
 app.get("/patient", (req, res) => {
-  const {q, start = 0, limit = 100 } = req.query;//รับพารามิเตอร์
+  const {q, start = 0, limit = 50 } = req.query;//รับพารามิเตอร์
 
   let query = "select p.* ,sf.firstname as staff_firstname, sf.lastname as staff_lastname from patient p LEFT JOIN staff sf on p.staff_id = sf.id";//สร้างคำสั่ง SQL เพื่อดึงข้อมูล
   let params = [];
@@ -973,14 +1011,15 @@ app.get("/schedule/staff/:staff_id/:workDate", async (req,res) => {
 //select * from work_schedule where patient_id = ? AND work_date >= now()
 //select ws.*,p.firstname as patient_firstname, p.lastname as patient_lastname from work_schedule ws LEFT JOIN patient p on ws.patient_id = p.id where ws.patient_id = ? AND ws.work_date >= now()
 app.get("/appointment/patient/:patient_id", async (req,res) => {
-  let schedulePatient = await queryAsync('select ws.*,p.firstname as patient_firstname, p.lastname as patient_lastname from work_schedule ws LEFT JOIN patient p on ws.patient_id = p.id where ws.patient_id = ? AND ws.work_date >= now()', [
+  let schedulePatient = await queryAsync('select ws.*,p.firstname as patient_firstname, p.lastname as patient_lastname from work_schedule ws LEFT JOIN patient p on ws.patient_id = p.id where ws.patient_id = ? AND ws.work_date >= now() ORDER BY ws.work_date ASC', [
     req.params.patient_id,
   ])
   res.json(schedulePatient)
 })
 
+//select * from work_schedule where patient_id = ? AND work_date < now()
 app.get("/appointment/patient/:patient_id/history", async (req,res) => {
-  let schedulePatient = await queryAsync('select * from work_schedule where patient_id = ? AND work_date < now()', [
+  let schedulePatient = await queryAsync('select ws.*,p.firstname as patient_firstname, p.lastname as patient_lastname from work_schedule ws LEFT JOIN patient p on ws.patient_id = p.id where ws.patient_id = ? AND ws.work_date < now() ORDER BY ws.work_date DESC', [
     req.params.patient_id,
   ])
   res.json(schedulePatient)
