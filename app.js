@@ -1,3 +1,4 @@
+require("dotenv").config()
 const express = require("express")
 const mysql = require("mysql")
 const util = require("util")
@@ -6,10 +7,14 @@ const port = 3000
 const nodemailer = require("nodemailer")
 const smtpTransport = require("nodemailer-smtp-transport")
 const { verify } = require("crypto")
+const sgMail = require('@sendgrid/mail');
+sgMail.setApiKey(process.env.SGMAIL_SECRET);
+const fileUpload = require('express-fileupload');
 
 
 app.use(express.json())
 app.use(express.urlencoded())
+app.use(fileUpload());
 
 const db = mysql.createPool({
   host: "localhost",
@@ -56,20 +61,55 @@ app.get("/staff", (req, res) => {
   });
 });
 
+//register staff
+// app.post("/staff", (req, res) => {
+//   db.query(
+//     "INSERT INTO `staff` (`id`, `username`, `firstname`, `lastname`, `password`) VALUES (NULL, ?, ?, ?, ?)",
+//     [
+//       req.body.username,
+//       req.body.firstname,
+//       req.body.lastname,
+//       req.body.password,
+//     ],
+//     (err, result) => {
+//       res.json(result.affectedRows)
+//     }
+//   )
+// })
 app.post("/staff", (req, res) => {
+  const { username, firstname, lastname, password } = req.body;
+
   db.query(
     "INSERT INTO `staff` (`id`, `username`, `firstname`, `lastname`, `password`) VALUES (NULL, ?, ?, ?, ?)",
-    [
-      req.body.username,
-      req.body.firstname,
-      req.body.lastname,
-      req.body.password,
-    ],
+    [username, firstname, lastname, password],
     (err, result) => {
-      res.json(result.affectedRows)
+      if (err) {
+        res.status(500).json({ error: "Database error" });
+        return;
+      }
+
+      // สร้างเนื้อหาอีเมล
+      const msg = {
+        to: username, // ส่งไปยังอีเมลของ Staff ที่เพิ่งเพิ่ม (username)
+        from: 'krittapat.m@ku.th', // ระบุอีเมลของผู้ส่ง
+        subject: 'Your Staff Account Information',
+        text: `Hello ${firstname} ${lastname},\n\nYour account has been created successfully.\n\nUsername(email): ${username}\nPassword: ${password}`,
+        html: `<p>Hello ${firstname} ${lastname},</p><p>Your account has been created successfully.</p><p><strong>Username:</strong> ${username}<br><strong>Password:</strong> ${password}</p><p>Please keep this information secure.</p>`,
+      };
+
+      // ส่งอีเมลโดยใช้ SendGrid
+      sgMail
+        .send(msg)
+        .then(() => {
+          res.json({ message: 'Staff added and email sent successfully.' });
+        })
+        .catch(error => {
+          console.error(error);
+          res.status(500).json({ error: "Failed to send email" });
+        });
     }
-  )
-})
+  );
+});
 
 app.get("/staff/:id", (req, res) => {
   db.query(
@@ -184,11 +224,44 @@ app.put("/staff/:id/password", (req, res) => {
 })
 
 
-app.post("/login_patient", (req, res) => {
-  const {email} = req.body
+// app.post("/login_patient", (req, res) => {
+//   const {email} = req.body
+
+//   db.query(
+//     "SELECT * FROM patient WHERE email=?",
+//     [email],
+//     (err, rows) => {
+//       if (err) {
+//         return res.status(500).json({
+//           status: "fail",
+//           message: "Invalid email",
+//           patient: null,
+//         })
+//       }
+//       if (rows.length == 0) {
+//         return res.status(400).json({
+//           status: "fail",
+//           message: "Invalid email",
+//           patient: null,
+//         })
+//       }
+
+//       const userData = rows[0]
+
+//       return res.status(200).json({
+//         status: "success",
+//         message: "login successful",
+//         patient: userData,
+//       })
+//     }
+//   )
+// })
+
+app.post("/login_patient", (req, res) => { 
+  const { email } = req.body;
 
   db.query(
-    "SELECT * FROM patient WHERE email=?",
+    "SELECT * FROM patient WHERE email = ?",
     [email],
     (err, rows) => {
       if (err) {
@@ -196,32 +269,69 @@ app.post("/login_patient", (req, res) => {
           status: "fail",
           message: "Invalid email",
           patient: null,
-        })
+        });
       }
+
       if (rows.length == 0) {
         return res.status(400).json({
           status: "fail",
           message: "Invalid email",
           patient: null,
-        })
+        });
       }
 
-      const userData = rows[0]
+      const userData = rows[0];
 
-      return res.status(200).json({
-        status: "success",
-        message: "login successful",
-        patient: userData,
-      })
+      // Generate a 6-digit OTP
+      const otp = Math.floor(1000 + Math.random() * 9000);
+
+      // Update OTP in database
+      db.query(
+        "UPDATE patient SET otp = ? WHERE email = ?",
+        [otp, email],
+        (err) => {
+          if (err) {
+            return res.status(500).json({
+              status: "fail",
+              message: "Failed to update OTP",
+            });
+          }
+
+          // Send OTP email
+          const msg = {
+            to: email,
+            from: 'krittapat.m@ku.th', // Replace with your verified sender email
+            subject: 'Your OTP Code',
+            text: `Your OTP code is ${otp}`,
+          };
+
+          sgMail
+            .send(msg)
+            .then(() => {
+              return res.status(200).json({
+                status: "success",
+                message: "OTP sent to email",
+                patient: userData,
+              });
+            })
+            .catch((error) => {
+              console.error(error);
+              return res.status(500).json({
+                status: "fail",
+                message: "Failed to send OTP email",
+              });
+            });
+        }
+      );
     }
-  )
-})
+  );
+});
 
 app.post("/otp/verify", (req, res) => {
   const { email, otp} = req.body
 
   db.query(
-    "SELECT * FROM patient WHERE email=? AND otp = ? AND otp_expired_at >= now()",
+    "SELECT * FROM patient WHERE email=? AND otp = ?",
     [email, otp],
     (err, rows) => {
       if(rows.length > 0){
@@ -328,9 +438,24 @@ app.post("/patient", (req, res) => {
       return res.status(400).json({ error: "This email is already in use."})
     }
 
+    if (!req.files || Object.keys(req.files).length === 0) {
+      return res.status(400).send('No files were uploaded.');
+    }
+  
+    // The name of the input field (i.e. "sampleFile") is used to retrieve the uploaded file
+    let sampleFile = req.files.image;
+    const filename = sampleFile.name;
+    // Use the mv() method to place the file somewhere on your server
+    sampleFile.mv('./patient_image/' + filename, function(err) {
+      // if (err)
+      //   return res.status(500).send(err);
+  
+      // res.send('File uploaded!');
+    });
+
     db.query(
-      "INSERT INTO patient (staff_id, firstname, lastname, sex, date_of_birth, hospital_number, date_of_registration, email) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-      [staff_id, firstname, lastname, sex, date_of_birth, hospital_number, date_of_registration, email],
+      "INSERT INTO patient (staff_id, firstname, lastname, sex, date_of_birth, hospital_number, date_of_registration, email, image_patient) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      [staff_id, firstname, lastname, sex, date_of_birth, hospital_number, date_of_registration, email, filename],
       (err, results) => {
         if (err) {
           return res.status(500).json({ error: "sever error"});
@@ -348,6 +473,40 @@ app.post("/patient", (req, res) => {
               });
               return
             }
+            
+            const msg = {
+              to: email,
+              from: 'krittapat.m@ku.th', // เปลี่ยนเป็นอีเมลของคุณ
+              subject: 'การลงทะเบียนในระบบสำเร็จ',
+              text: `สวัสดีคุณ ${firstname} ${lastname},
+  
+              การลงทะเบียนของคุณสำเร็จแล้วในระบบของเรา
+              ข้อมูลของคุณ:
+              ชื่อ: ${firstname} ${lastname}
+              เพศ: ${sex}
+              วันเกิด: ${date_of_birth}
+              หมายเลขโรงพยาบาล: ${hospital_number}
+              อีเมล: ${email}
+  
+              คุณสามารถนำ email นี้มาเข้าใช้งานระบบได้`,
+              html: `<p>สวัสดีคุณ ${firstname} ${lastname},</p>
+              <p>การลงทะเบียนของคุณสำเร็จแล้วในระบบของเรา</p>
+              <p><strong>ข้อมูลของคุณ:</strong><br>
+              ชื่อ: ${firstname} ${lastname}<br>
+              เพศ: ${sex}<br>
+              วันเกิด: ${date_of_birth}<br>
+              หมายเลขโรงพยาบาล: ${hospital_number}<br>
+              <p>ขอบคุณที่ใช้บริการของเรา</p>`
+            };
+            // ส่งอีเมล
+            sgMail
+              .send(msg)
+              .then(() => {
+                console.log('Email sent');
+              })
+              .catch((error) => {
+                console.error(error);
+              });
             res.json(results[0])
           }
         );
@@ -566,7 +725,7 @@ app.delete("/disease/:id", (req, res) => {
 // })
 
 app.get("/appliances", (req, res) => {
-  const {q, start = 0, limit = 10 } = req.query;//รับพารามิเตอร์
+  const {q, start = 0, limit = 50 } = req.query;//รับพารามิเตอร์
 
   let query = "select * from appliances";//สร้างคำสั่ง SQL เพื่อดึงข้อมูล
   let params = [];
@@ -649,11 +808,32 @@ app.delete("/appliances/:id", (req, res) => {
 })
 
 //medicine
+// app.get("/medicine", (req, res) => {
+//   db.query("select * from medicine ", (err, rows) => {
+//     res.json(rows)
+//   })
+// })
 app.get("/medicine", (req, res) => {
-  db.query("select * from medicine ", (err, rows) => {
-    res.json(rows)
-  })
-})
+  const {q, start = 0, limit = 50 } = req.query;//รับพารามิเตอร์
+
+  let query = "select * from medicine";//สร้างคำสั่ง SQL เพื่อดึงข้อมูล
+  let params = [];
+
+  if (q) {
+    query += " WHERE name LIKE ?";
+    params.push(`%${q}%`);//ตรวจสอบว่ามีพารามิเตอร์ q หรือไม่ ถ้ามีจะเพิ่มเงื่อนไขการค้นหาตามชื่อหรืออีเมลของผู้ใช้
+  }
+
+  query += " LIMIT ?, ?";//LIMIT: เป็นคำสั่งใน SQL ที่ใช้เพื่อระบุจำนวนแถวสูงสุดที่จะนำมาแสดงผลจากผลลัพธ์ของคำสั่ง SELECT
+  params.push(parseInt(start), parseInt(limit));//เพิ่มข้อจำกัดการแสดงผลตามค่าของ start และ limit เพื่อควบคุมจำนวนข้อมูลที่แสดงผล
+
+  db.query(query, params, (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: "not found appliances"});
+    }
+    res.json(rows);
+  });
+});
 
 app.get("/medicine/:id", (req, res) => {
   db.query(
@@ -1000,7 +1180,7 @@ app.get("/test", (req, res) => {
 
 // select p.* ,sf.firstname as staff_firstname, sf.lastname as staff_lastname from patient p LEFT JOIN staff sf on p.staff_id = sf.id where p.id = ?
 app.get("/schedule/staff/:staff_id/:workDate", async (req,res) => {
-  let scheduleStaff = await queryAsync('select ws.*,p.firstname as patient_firstname, p.lastname as patient_lastname from work_schedule ws LEFT JOIN patient p on ws.patient_id = p.id where ws.staff_id = ? AND ws.work_date = ? ORDER BY ws.start_time ASC', [
+  let scheduleStaff = await queryAsync('select ws.*,p.firstname as patient_firstname, p.lastname as patient_lastname, p.email as patient_email from work_schedule ws LEFT JOIN patient p on ws.patient_id = p.id where ws.staff_id = ? AND ws.work_date = ? ORDER BY ws.start_time ASC', [
     req.params.staff_id,
     req.params.workDate,
   ])
@@ -1011,7 +1191,7 @@ app.get("/schedule/staff/:staff_id/:workDate", async (req,res) => {
 //select * from work_schedule where patient_id = ? AND work_date >= now()
 //select ws.*,p.firstname as patient_firstname, p.lastname as patient_lastname from work_schedule ws LEFT JOIN patient p on ws.patient_id = p.id where ws.patient_id = ? AND ws.work_date >= now()
 app.get("/appointment/patient/:patient_id", async (req,res) => {
-  let schedulePatient = await queryAsync('select ws.*,p.firstname as patient_firstname, p.lastname as patient_lastname from work_schedule ws LEFT JOIN patient p on ws.patient_id = p.id where ws.patient_id = ? AND ws.work_date >= now() ORDER BY ws.work_date ASC', [
+  let schedulePatient = await queryAsync('select ws.*,p.firstname as patient_firstname, p.lastname as patient_lastname, p.email as patient_email from work_schedule ws LEFT JOIN patient p on ws.patient_id = p.id where ws.patient_id = ? AND ws.work_date >= now() ORDER BY ws.work_date ASC', [
     req.params.patient_id,
   ])
   res.json(schedulePatient)
@@ -1019,7 +1199,7 @@ app.get("/appointment/patient/:patient_id", async (req,res) => {
 
 //select * from work_schedule where patient_id = ? AND work_date < now()
 app.get("/appointment/patient/:patient_id/history", async (req,res) => {
-  let schedulePatient = await queryAsync('select ws.*,p.firstname as patient_firstname, p.lastname as patient_lastname from work_schedule ws LEFT JOIN patient p on ws.patient_id = p.id where ws.patient_id = ? AND ws.work_date < now() ORDER BY ws.work_date DESC', [
+  let schedulePatient = await queryAsync('select ws.*,p.firstname as patient_firstname, p.lastname as patient_lastname, p.email as patient_email from work_schedule ws LEFT JOIN patient p on ws.patient_id = p.id where ws.patient_id = ? AND ws.work_date < now() ORDER BY ws.work_date DESC', [
     req.params.patient_id,
   ])
   res.json(schedulePatient)
@@ -1027,7 +1207,7 @@ app.get("/appointment/patient/:patient_id/history", async (req,res) => {
 
 //แจ้งเตือนในapp
 app.get("/appointment/patient/:patient_id/upcoming", async (req,res) => {
-  let schedulePatient = await queryAsync('select * , "" as patient_firstname, "" as patient_lastname from work_schedule where patient_id = ? AND work_date >= date(now()) AND work_date <= date(date_add(now(), INTERVAL 1 day));', [
+  let schedulePatient = await queryAsync('select ws.* , p.firstname as patient_firstname, p.lastname as patient_lastname, p.email as patient_email from work_schedule ws LEFT JOIN patient p on ws.patient_id = p.id where patient_id = ? AND work_date >= date(now()) AND work_date <= date(date_add(now(), INTERVAL 1 day));', [
     req.params.patient_id,
   ])
   res.json(schedulePatient)
