@@ -445,13 +445,11 @@ app.post("/patient", (req, res) => {
     // The name of the input field (i.e. "sampleFile") is used to retrieve the uploaded file
     let sampleFile = req.files.image;
     const filename = sampleFile.name;
+    const filenames = sampleFile.name.split('.')
+    const ext = filenames[filenames.length-1]
+    console.log({filename, ext})
     // Use the mv() method to place the file somewhere on your server
-    sampleFile.mv('./patient_image/' + filename, function(err) {
-      // if (err)
-      //   return res.status(500).send(err);
-  
-      // res.send('File uploaded!');
-    });
+    
 
     db.query(
       "INSERT INTO patient (staff_id, firstname, lastname, sex, date_of_birth, hospital_number, date_of_registration, email, image_patient) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -462,6 +460,16 @@ app.post("/patient", (req, res) => {
         }
 
         const patientId = results.insertId;
+        const patientFilename = `patient_image/patient_image_${patientId}.${ext}`
+        db.query("UPDATE patient set image_patient = ? where id = ?",[patientFilename, patientId])
+
+        sampleFile.mv(patientFilename, function(err) {
+          // if (err)
+          //   return res.status(500).send(err);
+      
+          // res.send('File uploaded!');
+        });
+
         db.query(
           "SELECT * FROM patient WHERE id = ?",
           [patientId],
@@ -1191,7 +1199,7 @@ app.get("/schedule/staff/:staff_id/:workDate", async (req,res) => {
 //select * from work_schedule where patient_id = ? AND work_date >= now()
 //select ws.*,p.firstname as patient_firstname, p.lastname as patient_lastname from work_schedule ws LEFT JOIN patient p on ws.patient_id = p.id where ws.patient_id = ? AND ws.work_date >= now()
 app.get("/appointment/patient/:patient_id", async (req,res) => {
-  let schedulePatient = await queryAsync('select ws.*,p.firstname as patient_firstname, p.lastname as patient_lastname, p.email as patient_email from work_schedule ws LEFT JOIN patient p on ws.patient_id = p.id where ws.patient_id = ? AND ws.work_date >= now() ORDER BY ws.work_date ASC', [
+  let schedulePatient = await queryAsync('select ws.*,p.firstname as patient_firstname, p.lastname as patient_lastname, p.email as patient_email from work_schedule ws LEFT JOIN patient p on ws.patient_id = p.id where ws.patient_id = ? AND ws.work_date >= date(now()) ORDER BY ws.work_date ASC', [
     req.params.patient_id,
   ])
   res.json(schedulePatient)
