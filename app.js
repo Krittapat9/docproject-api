@@ -7,14 +7,13 @@ const port = 3000
 const nodemailer = require("nodemailer")
 const smtpTransport = require("nodemailer-smtp-transport")
 const { verify } = require("crypto")
-const sgMail = require('@sendgrid/mail');
-sgMail.setApiKey(process.env.SGMAIL_SECRET);
-const fileUpload = require('express-fileupload');
-
+const sgMail = require("@sendgrid/mail")
+sgMail.setApiKey(process.env.SGMAIL_SECRET)
+const fileUpload = require("express-fileupload")
 
 app.use(express.json())
 app.use(express.urlencoded())
-app.use(fileUpload());
+app.use(fileUpload())
 
 const db = mysql.createPool({
   host: "localhost",
@@ -40,26 +39,26 @@ app.get("/", (req, res) => {
 // })
 
 app.get("/staff", (req, res) => {
-  const {q, start = 0, limit = 50 } = req.query;//รับพารามิเตอร์
+  const { q, start = 0, limit = 50 } = req.query //รับพารามิเตอร์
 
-  let query = "select * from staff";//สร้างคำสั่ง SQL เพื่อดึงข้อมูล
-  let params = [];
+  let query = "select * from staff" //สร้างคำสั่ง SQL เพื่อดึงข้อมูล
+  let params = []
 
   if (q) {
-    query += " WHERE firstname LIKE ? OR lastname LIKE ?";
-    params.push(`%${q}%`, `%${q}%`);//ตรวจสอบว่ามีพารามิเตอร์ q หรือไม่ ถ้ามีจะเพิ่มเงื่อนไขการค้นหาตามชื่อหรืออีเมลของผู้ใช้
+    query += " WHERE firstname LIKE ? OR lastname LIKE ?"
+    params.push(`%${q}%`, `%${q}%`) //ตรวจสอบว่ามีพารามิเตอร์ q หรือไม่ ถ้ามีจะเพิ่มเงื่อนไขการค้นหาตามชื่อหรืออีเมลของผู้ใช้
   }
 
-  query += " LIMIT ?, ?";//LIMIT: เป็นคำสั่งใน SQL ที่ใช้เพื่อระบุจำนวนแถวสูงสุดที่จะนำมาแสดงผลจากผลลัพธ์ของคำสั่ง SELECT
-  params.push(parseInt(start), parseInt(limit));//เพิ่มข้อจำกัดการแสดงผลตามค่าของ start และ limit เพื่อควบคุมจำนวนข้อมูลที่แสดงผล
+  query += " LIMIT ?, ?" //LIMIT: เป็นคำสั่งใน SQL ที่ใช้เพื่อระบุจำนวนแถวสูงสุดที่จะนำมาแสดงผลจากผลลัพธ์ของคำสั่ง SELECT
+  params.push(parseInt(start), parseInt(limit)) //เพิ่มข้อจำกัดการแสดงผลตามค่าของ start และ limit เพื่อควบคุมจำนวนข้อมูลที่แสดงผล
 
   db.query(query, params, (err, rows) => {
     if (err) {
-      return res.status(500).json({ error: "not found staff"});
+      return res.status(500).json({ error: "not found staff" })
     }
-    res.json(rows);
-  });
-});
+    res.json(rows)
+  })
+})
 
 //register staff
 // app.post("/staff", (req, res) => {
@@ -77,65 +76,56 @@ app.get("/staff", (req, res) => {
 //   )
 // })
 app.post("/staff", (req, res) => {
-  const { username, firstname, lastname, password } = req.body;
+  const { username, firstname, lastname, password } = req.body
 
   db.query(
     "INSERT INTO `staff` (`id`, `username`, `firstname`, `lastname`, `password`) VALUES (NULL, ?, ?, ?, ?)",
     [username, firstname, lastname, password],
     (err, result) => {
       if (err) {
-        res.status(500).json({ error: "Database error" });
-        return;
+        res.status(500).json({ error: "Database error" })
+        return
       }
 
       // สร้างเนื้อหาอีเมล
       const msg = {
         to: username, // ส่งไปยังอีเมลของ Staff ที่เพิ่งเพิ่ม (username)
-        from: 'krittapat.m@ku.th', // ระบุอีเมลของผู้ส่ง
-        subject: 'Your Staff Account Information',
+        from: "krittapat.m@ku.th", // ระบุอีเมลของผู้ส่ง
+        subject: "Your Staff Account Information",
         text: `Hello ${firstname} ${lastname},\n\nYour account has been created successfully.\n\nUsername(email): ${username}\nPassword: ${password}`,
         html: `<p>Hello ${firstname} ${lastname},</p><p>Your account has been created successfully.</p><p><strong>Username:</strong> ${username}<br><strong>Password:</strong> ${password}</p><p>Please keep this information secure.</p>`,
-      };
+      }
 
       // ส่งอีเมลโดยใช้ SendGrid
       sgMail
         .send(msg)
         .then(() => {
-          res.json({ message: 'Staff added and email sent successfully.' });
+          res.json({ message: "Staff added and email sent successfully." })
         })
-        .catch(error => {
-          console.error(error);
-          res.status(500).json({ error: "Failed to send email" });
-        });
-    }
-  );
-});
-
-app.get("/staff/:id", (req, res) => {
-  db.query(
-    "select * from staff where id = ?",
-    [req.params.id],
-    (err, rows) => {
-      if (rows.length == 1) {
-        res.json(rows[0])
-      } else {
-        res.status(404).json({
-          message: "staff not found",
+        .catch((error) => {
+          console.error(error)
+          res.status(500).json({ error: "Failed to send email" })
         })
-      }
     }
   )
+})
+
+app.get("/staff/:id", (req, res) => {
+  db.query("select * from staff where id = ?", [req.params.id], (err, rows) => {
+    if (rows.length == 1) {
+      res.json(rows[0])
+    } else {
+      res.status(404).json({
+        message: "staff not found",
+      })
+    }
+  })
 })
 
 app.put("/staff/:id", (req, res) => {
   db.query(
     "UPDATE staff SET username=?, firstname=?, lastname=? WHERE id=?",
-    [
-      req.body.username,
-      req.body.firstname,
-      req.body.lastname,
-      req.params.id,
-    ],
+    [req.body.username, req.body.firstname, req.body.lastname, req.params.id],
     (err, result) => {
       res.json(result.affectedRows)
     }
@@ -182,7 +172,7 @@ app.post("/login", (req, res) => {
 })
 
 app.put("/staff/:id/password", (req, res) => {
-  const {old_password, new_password} = req.body
+  const { old_password, new_password } = req.body
   const id = req.params.id
 
   db.query(
@@ -223,7 +213,6 @@ app.put("/staff/:id/password", (req, res) => {
   )
 })
 
-
 // app.post("/login_patient", (req, res) => {
 //   const {email} = req.body
 
@@ -257,94 +246,87 @@ app.put("/staff/:id/password", (req, res) => {
 //   )
 // })
 
-app.post("/login_patient", (req, res) => { 
-  const { email } = req.body;
+app.post("/login_patient", (req, res) => {
+  const { email } = req.body
 
-  db.query(
-    "SELECT * FROM patient WHERE email = ?",
-    [email],
-    (err, rows) => {
-      if (err) {
-        return res.status(500).json({
-          status: "fail",
-          message: "Invalid email",
-          patient: null,
-        });
-      }
+  db.query("SELECT * FROM patient WHERE email = ?", [email], (err, rows) => {
+    if (err) {
+      return res.status(500).json({
+        status: "fail",
+        message: "Invalid email",
+        patient: null,
+      })
+    }
 
-      if (rows.length == 0) {
-        return res.status(400).json({
-          status: "fail",
-          message: "Invalid email",
-          patient: null,
-        });
-      }
+    if (rows.length == 0) {
+      return res.status(400).json({
+        status: "fail",
+        message: "Invalid email",
+        patient: null,
+      })
+    }
 
-      const userData = rows[0];
+    const userData = rows[0]
 
-      // Generate a 6-digit OTP
-      const otp = Math.floor(1000 + Math.random() * 9000);
+    // Generate a 6-digit OTP
+    const otp = Math.floor(1000 + Math.random() * 9000)
 
-      // Update OTP in database
-      db.query(
-        "UPDATE patient SET otp = ? WHERE email = ?",
-        [otp, email],
-        (err) => {
-          if (err) {
+    // Update OTP in database
+    db.query(
+      "UPDATE patient SET otp = ? WHERE email = ?",
+      [otp, email],
+      (err) => {
+        if (err) {
+          return res.status(500).json({
+            status: "fail",
+            message: "Failed to update OTP",
+          })
+        }
+
+        // Send OTP email
+        const msg = {
+          to: email,
+          from: "krittapat.m@ku.th", // Replace with your verified sender email
+          subject: "Your OTP Code",
+          text: `Your OTP code is ${otp}`,
+        }
+
+        sgMail
+          .send(msg)
+          .then(() => {
+            return res.status(200).json({
+              status: "success",
+              message: "OTP sent to email",
+              patient: userData,
+            })
+          })
+          .catch((error) => {
+            console.error(error)
             return res.status(500).json({
               status: "fail",
-              message: "Failed to update OTP",
-            });
-          }
-
-          // Send OTP email
-          const msg = {
-            to: email,
-            from: 'krittapat.m@ku.th', // Replace with your verified sender email
-            subject: 'Your OTP Code',
-            text: `Your OTP code is ${otp}`,
-          };
-
-          sgMail
-            .send(msg)
-            .then(() => {
-              return res.status(200).json({
-                status: "success",
-                message: "OTP sent to email",
-                patient: userData,
-              });
+              message: "Failed to send OTP email",
             })
-            .catch((error) => {
-              console.error(error);
-              return res.status(500).json({
-                status: "fail",
-                message: "Failed to send OTP email",
-              });
-            });
-        }
-      );
-    }
-  );
-});
+          })
+      }
+    )
+  })
+})
 
 app.post("/otp/verify", (req, res) => {
-  const { email, otp} = req.body
+  const { email, otp } = req.body
 
   db.query(
     "SELECT * FROM patient WHERE email=? AND otp = ?",
     [email, otp],
     (err, rows) => {
-      if(rows.length > 0){
-        return res.json({verify:true})
-      }else{
-        return res.json({verify:false})
+      if (rows.length > 0) {
+        return res.json({ verify: true })
+      } else {
+        return res.json({ verify: false })
       }
     }
   )
-
 })
-
-
 
 //ต้องมี endpoint login patient ส่ง email ของ patient อีก endpoint เอาไว้ verifly otp เก้บใน db , เพิ่มหน้า patient ทุกอัน
 //login_patient
@@ -380,28 +362,27 @@ app.post("/login_patient/otp", async (req, res) => {
 //query แสดงการชื่อนามหมอ อันแรกแสดงแค่ staff id
 //select pt.id as id, pt.staff_id, pt.firstname, pt.lastname, pt.sex, pt.date_of_birth, pt.hospital_number, pt.date_of_registration, sf.firstname as staff_firstname, sf.lastname as staff_lastname FROM patient pt JOIN staff sf on pt.staff_id = sf.id;
 app.get("/patient", (req, res) => {
-  const {q, start = 0, limit = 50 } = req.query;//รับพารามิเตอร์
+  const { q, start = 0, limit = 50 } = req.query //รับพารามิเตอร์
 
-  let query = "select p.* ,sf.firstname as staff_firstname, sf.lastname as staff_lastname from patient p LEFT JOIN staff sf on p.staff_id = sf.id";//สร้างคำสั่ง SQL เพื่อดึงข้อมูล
-  let params = [];
+  let query =
+    "select p.* ,sf.firstname as staff_firstname, sf.lastname as staff_lastname from patient p LEFT JOIN staff sf on p.staff_id = sf.id" //สร้างคำสั่ง SQL เพื่อดึงข้อมูล
+  let params = []
 
   if (q) {
-    query += " WHERE p.firstname LIKE ? OR p.lastname LIKE ? OR p.email LIKE ?";
-    params.push(`%${q}%`, `%${q}%`, `%${q}%`);//ตรวจสอบว่ามีพารามิเตอร์ q หรือไม่ ถ้ามีจะเพิ่มเงื่อนไขการค้นหาตามชื่อหรืออีเมลของผู้ใช้
+    query += " WHERE p.firstname LIKE ? OR p.lastname LIKE ? OR p.email LIKE ?"
+    params.push(`%${q}%`, `%${q}%`, `%${q}%`) //ตรวจสอบว่ามีพารามิเตอร์ q หรือไม่ ถ้ามีจะเพิ่มเงื่อนไขการค้นหาตามชื่อหรืออีเมลของผู้ใช้
   }
 
-  query += " LIMIT ?, ?";//LIMIT: เป็นคำสั่งใน SQL ที่ใช้เพื่อระบุจำนวนแถวสูงสุดที่จะนำมาแสดงผลจากผลลัพธ์ของคำสั่ง SELECT
-  params.push(parseInt(start), parseInt(limit));//เพิ่มข้อจำกัดการแสดงผลตามค่าของ start และ limit เพื่อควบคุมจำนวนข้อมูลที่แสดงผล
+  query += " LIMIT ?, ?" //LIMIT: เป็นคำสั่งใน SQL ที่ใช้เพื่อระบุจำนวนแถวสูงสุดที่จะนำมาแสดงผลจากผลลัพธ์ของคำสั่ง SELECT
+  params.push(parseInt(start), parseInt(limit)) //เพิ่มข้อจำกัดการแสดงผลตามค่าของ start และ limit เพื่อควบคุมจำนวนข้อมูลที่แสดงผล
 
   db.query(query, params, (err, rows) => {
     if (err) {
-      return res.status(500).json({ error: "not found patient"});
+      return res.status(500).json({ error: "not found patient" })
     }
-    res.json(rows);
-  });
-});
-
-
+    res.json(rows)
+  })
+})
 
 app.get("/patient/:id", (req, res) => {
   db.query(
@@ -419,73 +400,92 @@ app.get("/patient/:id", (req, res) => {
   )
 })
 app.post("/patient", (req, res) => {
-
-  const { staff_id, firstname, lastname, sex, date_of_birth, hospital_number, date_of_registration, email} = req.body;
+  const {
+    staff_id,
+    firstname,
+    lastname,
+    sex,
+    date_of_birth,
+    hospital_number,
+    date_of_registration,
+    email,
+  } = req.body
 
   //ไว้ใช้เช็ครูปแบบemail
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if(!emailRegex.test(email)) {
-      return res.status(400).json({ error: "wrong email format"});
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ error: "wrong email format" })
   }
 
   //ไว้ใช้เช็คemailซ้ำในdb
   db.query("SELECT * FROM patient WHERE email = ?", [email], (err, results) => {
-    if(err) {
-      return res.status(500).json({ error: "server error"});
+    if (err) {
+      return res.status(500).json({ error: "server error" })
     }
 
-    if(results.length > 0) {
-      return res.status(400).json({ error: "This email is already in use."})
+    if (results.length > 0) {
+      return res.status(400).json({ error: "This email is already in use." })
     }
 
     if (!req.files || Object.keys(req.files).length === 0) {
-      return res.status(400).send('No files were uploaded.');
+      return res.status(400).send("No files were uploaded.")
     }
-  
+
     // The name of the input field (i.e. "sampleFile") is used to retrieve the uploaded file
-    let sampleFile = req.files.image;
-    const filename = sampleFile.name;
-    const filenames = sampleFile.name.split('.')
-    const ext = filenames[filenames.length-1]
-    console.log({filename, ext})
+    let sampleFile = req.files.image
+    const filename = sampleFile.name
+    const filenames = sampleFile.name.split(".")
+    const ext = filenames[filenames.length - 1]
+    console.log({ filename, ext })
     // Use the mv() method to place the file somewhere on your server
-    
 
     db.query(
       "INSERT INTO patient (staff_id, firstname, lastname, sex, date_of_birth, hospital_number, date_of_registration, email, image_patient) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      [staff_id, firstname, lastname, sex, date_of_birth, hospital_number, date_of_registration, email, filename],
+      [
+        staff_id,
+        firstname,
+        lastname,
+        sex,
+        date_of_birth,
+        hospital_number,
+        date_of_registration,
+        email,
+        filename,
+      ],
       (err, results) => {
         if (err) {
-          return res.status(500).json({ error: "sever error"});
+          return res.status(500).json({ error: "sever error" })
         }
 
-        const patientId = results.insertId;
+        const patientId = results.insertId
         const patientFilename = `patient_image/patient_image_${patientId}.${ext}`
-        db.query("UPDATE patient set image_patient = ? where id = ?",[patientFilename, patientId])
+        db.query("UPDATE patient set image_patient = ? where id = ?", [
+          patientFilename,
+          patientId,
+        ])
 
-        sampleFile.mv(patientFilename, function(err) {
+        sampleFile.mv(patientFilename, function (err) {
           // if (err)
           //   return res.status(500).send(err);
-      
           // res.send('File uploaded!');
-        });
+        })
 
         db.query(
           "SELECT * FROM patient WHERE id = ?",
           [patientId],
           (err, results) => {
-            if (err || results.length !=1) {
+            if (err || results.length != 1) {
               console.error(err)
               res.status(404).json({
                 error: "patient not found",
-              });
+              })
               return
             }
-            
+
             const msg = {
               to: email,
-              from: 'krittapat.m@ku.th', // เปลี่ยนเป็นอีเมลของคุณ
-              subject: 'การลงทะเบียนในระบบสำเร็จ',
+              from: "krittapat.m@ku.th", // เปลี่ยนเป็นอีเมลของคุณ
+              subject: "การลงทะเบียนในระบบสำเร็จ",
               text: `สวัสดีคุณ ${firstname} ${lastname},
   
               การลงทะเบียนของคุณสำเร็จแล้วในระบบของเรา
@@ -504,24 +504,24 @@ app.post("/patient", (req, res) => {
               เพศ: ${sex}<br>
               วันเกิด: ${date_of_birth}<br>
               หมายเลขโรงพยาบาล: ${hospital_number}<br>
-              <p>ขอบคุณที่ใช้บริการของเรา</p>`
-            };
+              <p>ขอบคุณที่ใช้บริการของเรา</p>`,
+            }
             // ส่งอีเมล
             sgMail
               .send(msg)
               .then(() => {
-                console.log('Email sent');
+                console.log("Email sent")
               })
               .catch((error) => {
-                console.error(error);
-              });
+                console.error(error)
+              })
             res.json(results[0])
           }
-        );
-       }
-      );
-  });
-});
+        )
+      }
+    )
+  })
+})
 
 // app.post("/patient", (req, res) => {
 //   db.query(
@@ -581,13 +581,9 @@ app.put("/patient/:id", (req, res) => {
 })
 
 app.delete("/patient/:id", (req, res) => {
-  db.query(
-    "DELETE FROM patient WHERE id=?",
-    [req.params.id],
-    (err, result) => {
-      res.json(result.affectedRows)
-    }
-  )
+  db.query("DELETE FROM patient WHERE id=?", [req.params.id], (err, result) => {
+    res.json(result.affectedRows)
+  })
 })
 app.put("/disease/:id", (req, res) => {
   db.query(
@@ -598,7 +594,6 @@ app.put("/disease/:id", (req, res) => {
     }
   )
 })
-
 
 //get patient surgery
 app.get("/patient/:patient_id/surgery", (req, res) => {
@@ -733,26 +728,27 @@ app.delete("/disease/:id", (req, res) => {
 // })
 
 app.get("/appliances", (req, res) => {
-  const {q, start = 0, limit = 50 } = req.query;//รับพารามิเตอร์
+  const { q, start = 0, limit = 50 } = req.query //รับพารามิเตอร์
 
-  let query = "select * from appliances";//สร้างคำสั่ง SQL เพื่อดึงข้อมูล
-  let params = [];
+  let query = "select * from appliances" //สร้างคำสั่ง SQL เพื่อดึงข้อมูล
+  let params = []
 
   if (q) {
-    query += " WHERE type LIKE ? OR name LIKE ? OR brand LIKE ? OR name_flange LIKE ? OR name_pouch LIKE? OR size LIKE?";
-    params.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);//ตรวจสอบว่ามีพารามิเตอร์ q หรือไม่ ถ้ามีจะเพิ่มเงื่อนไขการค้นหาตามชื่อหรืออีเมลของผู้ใช้
+    query +=
+      " WHERE type LIKE ? OR name LIKE ? OR brand LIKE ? OR name_flange LIKE ? OR name_pouch LIKE? OR size LIKE?"
+    params.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`) //ตรวจสอบว่ามีพารามิเตอร์ q หรือไม่ ถ้ามีจะเพิ่มเงื่อนไขการค้นหาตามชื่อหรืออีเมลของผู้ใช้
   }
 
-  query += " LIMIT ?, ?";//LIMIT: เป็นคำสั่งใน SQL ที่ใช้เพื่อระบุจำนวนแถวสูงสุดที่จะนำมาแสดงผลจากผลลัพธ์ของคำสั่ง SELECT
-  params.push(parseInt(start), parseInt(limit));//เพิ่มข้อจำกัดการแสดงผลตามค่าของ start และ limit เพื่อควบคุมจำนวนข้อมูลที่แสดงผล
+  query += " LIMIT ?, ?" //LIMIT: เป็นคำสั่งใน SQL ที่ใช้เพื่อระบุจำนวนแถวสูงสุดที่จะนำมาแสดงผลจากผลลัพธ์ของคำสั่ง SELECT
+  params.push(parseInt(start), parseInt(limit)) //เพิ่มข้อจำกัดการแสดงผลตามค่าของ start และ limit เพื่อควบคุมจำนวนข้อมูลที่แสดงผล
 
   db.query(query, params, (err, rows) => {
     if (err) {
-      return res.status(500).json({ error: "not found appliances"});
+      return res.status(500).json({ error: "not found appliances" })
     }
-    res.json(rows);
-  });
-});
+    res.json(rows)
+  })
+})
 
 app.get("/appliances/:id", (req, res) => {
   db.query(
@@ -822,26 +818,26 @@ app.delete("/appliances/:id", (req, res) => {
 //   })
 // })
 app.get("/medicine", (req, res) => {
-  const {q, start = 0, limit = 50 } = req.query;//รับพารามิเตอร์
+  const { q, start = 0, limit = 50 } = req.query //รับพารามิเตอร์
 
-  let query = "select * from medicine";//สร้างคำสั่ง SQL เพื่อดึงข้อมูล
-  let params = [];
+  let query = "select * from medicine" //สร้างคำสั่ง SQL เพื่อดึงข้อมูล
+  let params = []
 
   if (q) {
-    query += " WHERE name LIKE ?";
-    params.push(`%${q}%`);//ตรวจสอบว่ามีพารามิเตอร์ q หรือไม่ ถ้ามีจะเพิ่มเงื่อนไขการค้นหาตามชื่อหรืออีเมลของผู้ใช้
+    query += " WHERE name LIKE ?"
+    params.push(`%${q}%`) //ตรวจสอบว่ามีพารามิเตอร์ q หรือไม่ ถ้ามีจะเพิ่มเงื่อนไขการค้นหาตามชื่อหรืออีเมลของผู้ใช้
   }
 
-  query += " LIMIT ?, ?";//LIMIT: เป็นคำสั่งใน SQL ที่ใช้เพื่อระบุจำนวนแถวสูงสุดที่จะนำมาแสดงผลจากผลลัพธ์ของคำสั่ง SELECT
-  params.push(parseInt(start), parseInt(limit));//เพิ่มข้อจำกัดการแสดงผลตามค่าของ start และ limit เพื่อควบคุมจำนวนข้อมูลที่แสดงผล
+  query += " LIMIT ?, ?" //LIMIT: เป็นคำสั่งใน SQL ที่ใช้เพื่อระบุจำนวนแถวสูงสุดที่จะนำมาแสดงผลจากผลลัพธ์ของคำสั่ง SELECT
+  params.push(parseInt(start), parseInt(limit)) //เพิ่มข้อจำกัดการแสดงผลตามค่าของ start และ limit เพื่อควบคุมจำนวนข้อมูลที่แสดงผล
 
   db.query(query, params, (err, rows) => {
     if (err) {
-      return res.status(500).json({ error: "not found appliances"});
+      return res.status(500).json({ error: "not found appliances" })
     }
-    res.json(rows);
-  });
-});
+    res.json(rows)
+  })
+})
 
 app.get("/medicine/:id", (req, res) => {
   db.query(
@@ -862,10 +858,7 @@ app.get("/medicine/:id", (req, res) => {
 app.post("/medicine", (req, res) => {
   db.query(
     "INSERT INTO `medicine` (`id`, `name`, `details`) VALUES (NULL, ?, ?)",
-    [
-      req.body.name,
-      req.body.details,
-    ],
+    [req.body.name, req.body.details],
     (err, result) => {
       res.json(result.affectedRows)
     }
@@ -875,11 +868,7 @@ app.post("/medicine", (req, res) => {
 app.put("/medicine/:id", (req, res) => {
   db.query(
     "UPDATE medicine SET name=?, detail=? WHERE id=?",
-    [
-      req.body.name,
-      req.body.detail,
-      req.params.id,
-    ],
+    [req.body.name, req.body.detail, req.params.id],
     (err, result) => {
       res.json(result.affectedRows)
     }
@@ -921,7 +910,6 @@ function queryMedicalHistory(whereColumn) {
     LEFT JOIN medicine mc on mh.medicine_id = mc.id
     WHERE mh.${whereColumn}=?
     ORDER BY datetime_of_medical DESC`
-    
 }
 
 //surgery_id
@@ -929,7 +917,7 @@ function queryMedicalHistory(whereColumn) {
 app.get("/surgery/:id", async (req, res) => {
   let rowsSurgery = await queryAsync(
     // SELECT s.id as id,s.patient_id, s.surgery_type_note_other,s.disease_note_other,s.surgery_type_id as surgery_type_id, s.disease_id as disease_id, d.name as disease_name, st.name as surgery_type_name, s.date_of_surgery as date_of_surgery, s.staff_id,sf.username as username, sf.firstname as staff_firstname, sf.lastname as staff_lastname, sm.id as stoma_id, smt.name as stoma_type_name, sm.stoma_type_note_other as stoma_type_note_other
- `
+    `
     SELECT s.id as id, s.patient_id, s.surgery_type_note_other, s.disease_note_other, s.surgery_type_id as surgery_type_id, s.disease_id as disease_id, d.name as disease_name, st.name as surgery_type_name, s.date_of_surgery as date_of_surgery, s.staff_id,sf.username as username, sf.firstname as staff_firstname, sf.lastname as staff_lastname, sm.id as stoma_id, smt.name as stoma_type_name, sm.stoma_type_note_other as stoma_type_note_other, s.case_id as case_id
     FROM surgery s 
     LEFT JOIN surgery_type st on s.surgery_type_id = st.id
@@ -947,9 +935,10 @@ app.get("/surgery/:id", async (req, res) => {
   }
   let surgery = rowsSurgery[0]
 
-  let rowsPatient = await queryAsync(`select p.* ,sf.firstname as staff_firstname, sf.lastname as staff_lastname from patient p LEFT JOIN staff sf on p.staff_id = sf.id where p.id = ?`, [
-    surgery.patient_id,
-  ])
+  let rowsPatient = await queryAsync(
+    `select p.* ,sf.firstname as staff_firstname, sf.lastname as staff_lastname from patient p LEFT JOIN staff sf on p.staff_id = sf.id where p.id = ?`,
+    [surgery.patient_id]
+  )
   let patient = rowsPatient[0]
 
   let rowsMedicalHistory = await queryAsync(queryMedicalHistory("surgery_id"), [
@@ -964,13 +953,9 @@ app.get("/surgery/:id", async (req, res) => {
 })
 
 app.delete("/surgery/:id", (req, res) => {
-  db.query(
-    "DELETE FROM surgery WHERE id=?",
-    [req.params.id],
-    (err, result) => {
-      res.json(result.affectedRows)
-    }
-  )
+  db.query("DELETE FROM surgery WHERE id=?", [req.params.id], (err, result) => {
+    res.json(result.affectedRows)
+  })
 })
 //medical_history_id
 app.get("/medical_history/:id", async (req, res) => {
@@ -1028,7 +1013,7 @@ app.post("/stoma", (req, res) => {
 // WHERE mh.surgery_id=?
 
 //post medical history
-app.post("/surgery/:surgery_id/medical_history", async(req, res)  => {
+app.post("/surgery/:surgery_id/medical_history", async (req, res) => {
   let caseId = await queryAsync(
     "SELECT max(case_id) as case_id FROM medical_history WHERE surgery_id = ?",
     [req.params.surgery_id]
@@ -1187,42 +1172,46 @@ app.get("/test", (req, res) => {
 //ต้องมี endpoint login patient ส่ง email ของ patient อีก endpoint เอาไว้ verifly otp เก้บใน db , เพิ่มหน้า patient ทุกอัน
 
 // select p.* ,sf.firstname as staff_firstname, sf.lastname as staff_lastname from patient p LEFT JOIN staff sf on p.staff_id = sf.id where p.id = ?
-app.get("/schedule/staff/:staff_id/:workDate", async (req,res) => {
-  let scheduleStaff = await queryAsync('select ws.*,p.firstname as patient_firstname, p.lastname as patient_lastname, p.email as patient_email from work_schedule ws LEFT JOIN patient p on ws.patient_id = p.id where ws.staff_id = ? AND ws.work_date = ? ORDER BY ws.start_time ASC', [
-    req.params.staff_id,
-    req.params.workDate,
-  ])
+app.get("/schedule/staff/:staff_id/:workDate", async (req, res) => {
+  let scheduleStaff = await queryAsync(
+    "select ws.*,p.firstname as patient_firstname, p.lastname as patient_lastname, p.email as patient_email from work_schedule ws LEFT JOIN patient p on ws.patient_id = p.id where ws.staff_id = ? AND ws.work_date = ? ORDER BY ws.start_time ASC",
+    [req.params.staff_id, req.params.workDate]
+  )
   res.json(scheduleStaff)
 })
 
 //select ws.*,p.firstname as patient_firstname, p.lastname as patient_lastname from work_schedule ws LEFT JOIN patient p on ws.patient_id = p.id where ws.staff_id = ? AND ws.work_date = ?
 //select * from work_schedule where patient_id = ? AND work_date >= now()
 //select ws.*,p.firstname as patient_firstname, p.lastname as patient_lastname from work_schedule ws LEFT JOIN patient p on ws.patient_id = p.id where ws.patient_id = ? AND ws.work_date >= now()
-app.get("/appointment/patient/:patient_id", async (req,res) => {
-  let schedulePatient = await queryAsync('select ws.*,p.firstname as patient_firstname, p.lastname as patient_lastname, p.email as patient_email from work_schedule ws LEFT JOIN patient p on ws.patient_id = p.id where ws.patient_id = ? AND ws.work_date >= date(now()) ORDER BY ws.work_date ASC', [
-    req.params.patient_id,
-  ])
+app.get("/appointment/patient/:patient_id", async (req, res) => {
+  let schedulePatient = await queryAsync(
+    "select ws.*,p.firstname as patient_firstname, p.lastname as patient_lastname, p.email as patient_email from work_schedule ws LEFT JOIN patient p on ws.patient_id = p.id where ws.patient_id = ? AND ws.work_date >= date(now()) ORDER BY ws.work_date ASC",
+    [req.params.patient_id]
+  )
   res.json(schedulePatient)
 })
 
 //select * from work_schedule where patient_id = ? AND work_date < now()
-app.get("/appointment/patient/:patient_id/history", async (req,res) => {
-  let schedulePatient = await queryAsync('select ws.*,p.firstname as patient_firstname, p.lastname as patient_lastname, p.email as patient_email from work_schedule ws LEFT JOIN patient p on ws.patient_id = p.id where ws.patient_id = ? AND ws.work_date < now() ORDER BY ws.work_date DESC', [
-    req.params.patient_id,
-  ])
+app.get("/appointment/patient/:patient_id/history", async (req, res) => {
+  let schedulePatient = await queryAsync(
+    "select ws.*,p.firstname as patient_firstname, p.lastname as patient_lastname, p.email as patient_email from work_schedule ws LEFT JOIN patient p on ws.patient_id = p.id where ws.patient_id = ? AND ws.work_date < now() ORDER BY ws.work_date DESC",
+    [req.params.patient_id]
+  )
   res.json(schedulePatient)
 })
 
 //แจ้งเตือนในapp
-app.get("/appointment/patient/:patient_id/upcoming", async (req,res) => {
-  let schedulePatient = await queryAsync('select ws.* , p.firstname as patient_firstname, p.lastname as patient_lastname, p.email as patient_email from work_schedule ws LEFT JOIN patient p on ws.patient_id = p.id where patient_id = ? AND work_date >= date(now()) AND work_date <= date(date_add(now(), INTERVAL 1 day));', [
-    req.params.patient_id,
-  ])
+app.get("/appointment/patient/:patient_id/upcoming", async (req, res) => {
+  let schedulePatient = await queryAsync(
+    "select ws.* , p.firstname as patient_firstname, p.lastname as patient_lastname, p.email as patient_email from work_schedule ws LEFT JOIN patient p on ws.patient_id = p.id where patient_id = ? AND work_date >= date(now()) AND work_date <= date(date_add(now(), INTERVAL 1 day));",
+    [req.params.patient_id]
+  )
   res.json(schedulePatient)
 })
 
-app.post("/schedule",async(req,res) => {
-  let result = await queryAsync("INSERT INTO `work_schedule` (`id`, `staff_id`, `patient_id`, `work_date`,`start_time`, `end_time`, `detail`) VALUES (NULL, ?, ?, ?, ?, ?, ?)",
+app.post("/schedule", async (req, res) => {
+  let result = await queryAsync(
+    "INSERT INTO `work_schedule` (`id`, `staff_id`, `patient_id`, `work_date`,`start_time`, `end_time`, `detail`) VALUES (NULL, ?, ?, ?, ?, ?, ?)",
     [
       req.body.staff_id,
       req.body.patient_id,
@@ -1230,14 +1219,268 @@ app.post("/schedule",async(req,res) => {
       req.body.start_time,
       req.body.end_time,
       req.body.detail,
-    ])
-  let insertedSchedule = await queryAsync("SELECT * FROM work_schedule WHERE id = ?",
-        [result.insertId],
-        )
-    res.json(insertedSchedule[0])
+    ]
+  )
+  let insertedSchedule = await queryAsync(
+    "SELECT * FROM work_schedule WHERE id = ?",
+    [result.insertId]
+  )
+  res.json(insertedSchedule[0])
 })
 
+//report
+app.post("/report", async (req, res) => {
+  let appliance = await queryAsync(
+    `SELECT mh.appliances_id as appliance_id, a.name as appliances_name, count(*) as number, group_concat(mh.appliances_id) as which_one
+    FROM medical_history mh join appliances a on mh.appliances_id = a.id
+    WHERE surgery_id = ?
+    group by mh.appliances_id, a.name;`,
+    [req.body.surgery_id]
+  )
+  let medicine = await queryAsync(
+    `SELECT mh.medicine_id as medicine_id, m.name as medicine_name, count(*) as number, group_concat(mh.medicine_id) as which_one
+    FROM medical_history mh join medicine m on mh.medicine_id = m.id
+    WHERE surgery_id = ?
+    group by mh.medicine_id, m.name;`,
+    [req.body.surgery_id]
+  )
+  let stoma_color = await queryAsync(
+    `SELECT mh.stoma_color_id as stoma_color_id, sc.name as stoma_color_name, count(*) as number, group_concat(mh.stoma_color_id) as which_one
+    FROM medical_history mh join stoma_color sc on mh.stoma_color_id = sc.id
+    WHERE surgery_id = ?
+    group by mh.stoma_color_id, sc.name;`,
+    [req.body.surgery_id]
+  )
+  let peristomal_skin = await queryAsync(
+    `SELECT mh.peristomal_skin_id as peristomal_skin_id, ps.name as peristomal_skin_name, count(*) as number, group_concat(mh.peristomal_skin_id) as which_one
+    FROM medical_history mh join peristomal_skin ps on mh.peristomal_skin_id = ps.id
+    WHERE surgery_id = ?
+    group by mh.peristomal_skin_id, ps.name;`,
+    [req.body.surgery_id]
+  )
+  let medical_history = await queryAsync(
+    `SELECT stoma_size_width_mm, stoma_size_length_mm
+    FROM medical_history 
+    WHERE surgery_id = ?;`,
+    [req.body.surgery_id]
+  )
+  let stoma_characteristics = await queryAsync(
+    `SELECT mh.stoma_characteristics_id as stoma_characteristics_id, sct.name as stoma_characteristics_name, count(*) as number, group_concat(mh.stoma_characteristics_id) as which_one
+    FROM medical_history mh join stoma_characteristics sct on mh.stoma_characteristics_id = sct.id
+    WHERE surgery_id = ?
+    group by mh.stoma_characteristics_id, sct.name;`,
+    [req.body.surgery_id]
+  )
+  let stoma_shape = await queryAsync(
+    `SELECT mh.stoma_shape_id as stoma_shape_id, ss.name as stoma_shape_name, count(*) as number, group_concat(mh.stoma_shape_id) as which_one
+    FROM medical_history mh join stoma_shape ss on mh.stoma_shape_id = ss.id
+    WHERE surgery_id = ?
+    group by mh.stoma_shape_id, ss.name;`,
+    [req.body.surgery_id]
+  )
+  let stoma_protrusion = await queryAsync(
+    `SELECT mh.stoma_protrusion_id as stoma_protrusion_id, sp.name as stoma_protrusion_name, count(*) as number, group_concat(mh.stoma_protrusion_id) as which_one
+    FROM medical_history mh join stoma_protrusion sp on mh.stoma_protrusion_id = sp.id
+    WHERE surgery_id = ?
+    group by mh.stoma_protrusion_id, sp.name;`,
+    [req.body.surgery_id]
+  )
+  let stoma_construction = await queryAsync(
+    `SELECT mh.stoma_construction_id as stoma_construction_id, scn.name as stoma_construction_name, count(*) as number, group_concat(mh.stoma_construction_id) as which_one
+    FROM medical_history mh join stoma_construction scn on mh.stoma_construction_id = scn.id
+    WHERE surgery_id = ?
+    group by mh.stoma_construction_id, scn.name;`,
+    [req.body.surgery_id]
+  )
+  let mucocutaneous_suture_line = await queryAsync(
+    `SELECT mh.mucocutaneous_suture_line_id as mucocutaneous_suture_line_id, ms.name as mucocutaneous_suture_line_name, count(*) as number, group_concat(mh.mucocutaneous_suture_line_id) as which_one
+    FROM medical_history mh join mucocutaneous_suture_line ms on mh.mucocutaneous_suture_line_id = ms.id
+    WHERE surgery_id = ?
+    group by mh.mucocutaneous_suture_line_id, ms.name;`,
+    [req.body.surgery_id]
+  )
+  let stoma_effluent = await queryAsync(
+    `SELECT mh.stoma_effluent_id as stoma_effluent_id, se.name as stoma_effluent_name, count(*) as number, group_concat(mh.stoma_effluent_id) as which_one
+    FROM medical_history mh join stoma_effluent se on mh.stoma_effluent_id = se.id
+    WHERE surgery_id = ?
+    group by mh.stoma_effluent_id, se.name;`,
+    [req.body.surgery_id]
+  )
+  let type_of_diversion = await queryAsync(
+    `SELECT mh.type_of_diversion_id as type_of_diversion_id, tod.name as type_of_diversion_name, count(*) as number, group_concat(mh.type_of_diversion_id) as which_one
+    FROM medical_history mh join type_of_diversion tod on mh.type_of_diversion_id = tod.id
+    WHERE surgery_id = ?
+    group by mh.type_of_diversion_id, tod.name;`,
+    [req.body.surgery_id]
+  )
+  // let result = await queryAsync(
+  //   `SELECT mh.appliances_id as appliance_id, a.name as appliances_name,
+  //     m.name as medicine_name,
+  //     sc.name as stoma_color_name,
+  //     ps.name as peristomal_skin_name,
+  //     sct.name as stoma_characteristics_name,
+  //     ss.name as stoma_shape_name,
+  //     sp.name as stoma_protrusion_name,
+  //     scn.name as stoma_construction_name,
+  //     ms.name as mucocutaneous_suture_line_name,
+  //     se.name as stoma_effluent_name,
+  //     tod.name as type_of_diversion_name
 
+  //   FROM medical_history mh join appliances a on mh.appliances_id = a.id
+  //     join medicine m on mh.medicine_id = m.id
+  //     join stoma_color sc on mh.stoma_construction_id = sc.id
+  //     join peristomal_skin ps on mh.peristomal_skin_id = ps.id
+  //     join stoma_characteristics sct on mh.stoma_characteristics_id = sct.id
+  //     join stoma_shape ss on mh.stoma_shape_id = ss.id
+  //     join stoma_protrusion sp on mh.stoma_protrusion_id = sp.id
+  //     join stoma_construction scn on mh.stoma_construction_id = scn.id
+  //     join mucocutaneous_suture_line ms on mh.mucocutaneous_suture_line_id = ms.id
+  //     join stoma_effluent se on mh.stoma_effluent_id = se.id
+  //     join type_of_diversion tod on mh.type_of_diversion_id = tod.id
+  //   WHERE surgery_id = ?;`,
+  //   [req.body.surgery_id]
+  // )
+  res.json({
+    appliance,
+    medicine,
+    stoma_color,
+    peristomal_skin,
+    stoma_characteristics,
+    medical_history,
+    stoma_shape,
+    stoma_protrusion,
+    stoma_construction,
+    mucocutaneous_suture_line,
+    stoma_effluent,
+    type_of_diversion,
+  })
+})
+
+// สร้าง endpoint สำหรับ /report
+app.get("/report", async (req, res) => {
+  const { surgery_id } = req.query // รับค่า surgery_id จาก query string
+
+  if (!surgery_id) {
+    return res.status(400).json({ error: "surgery_id is required" })
+  }
+
+  try {
+    let appliance = await queryAsync(
+      `SELECT mh.appliances_id as appliance_id, a.name as appliances_name, count(*) as number, group_concat(mh.appliances_id) as which_one
+      FROM medical_history mh join appliances a on mh.appliances_id = a.id
+      WHERE surgery_id = ?
+      group by mh.appliances_id, a.name;`,
+      [surgery_id]
+    )
+
+    let medicine = await queryAsync(
+      `SELECT mh.medicine_id as medicine_id, m.name as medicine_name, count(*) as number, group_concat(mh.medicine_id) as which_one
+      FROM medical_history mh join medicine m on mh.medicine_id = m.id
+      WHERE surgery_id = ?
+      group by mh.medicine_id, m.name;`,
+      [surgery_id]
+    )
+
+    let stoma_color = await queryAsync(
+      `SELECT mh.stoma_color_id as stoma_color_id, sc.name as stoma_color_name, count(*) as number, group_concat(mh.stoma_color_id) as which_one
+      FROM medical_history mh join stoma_color sc on mh.stoma_color_id = sc.id
+      WHERE surgery_id = ?
+      group by mh.stoma_color_id, sc.name;`,
+      [surgery_id]
+    )
+
+    let peristomal_skin = await queryAsync(
+      `SELECT mh.peristomal_skin_id as peristomal_skin_id, ps.name as peristomal_skin_name, count(*) as number, group_concat(mh.peristomal_skin_id) as which_one
+      FROM medical_history mh join peristomal_skin ps on mh.peristomal_skin_id = ps.id
+      WHERE surgery_id = ?
+      group by mh.peristomal_skin_id, ps.name;`,
+      [surgery_id]
+    )
+
+    let medical_history = await queryAsync(
+      `SELECT stoma_size_width_mm, stoma_size_length_mm
+      FROM medical_history 
+      WHERE surgery_id = ?;`,
+      [surgery_id]
+    )
+
+    let stoma_characteristics = await queryAsync(
+      `SELECT mh.stoma_characteristics_id as stoma_characteristics_id, sct.name as stoma_characteristics_name, count(*) as number, group_concat(mh.stoma_characteristics_id) as which_one
+      FROM medical_history mh join stoma_characteristics sct on mh.stoma_characteristics_id = sct.id
+      WHERE surgery_id = ?
+      group by mh.stoma_characteristics_id, sct.name;`,
+      [surgery_id]
+    )
+
+    let stoma_shape = await queryAsync(
+      `SELECT mh.stoma_shape_id as stoma_shape_id, ss.name as stoma_shape_name, count(*) as number, group_concat(mh.stoma_shape_id) as which_one
+      FROM medical_history mh join stoma_shape ss on mh.stoma_shape_id = ss.id
+      WHERE surgery_id = ?
+      group by mh.stoma_shape_id, ss.name;`,
+      [surgery_id]
+    )
+
+    let stoma_protrusion = await queryAsync(
+      `SELECT mh.stoma_protrusion_id as stoma_protrusion_id, sp.name as stoma_protrusion_name, count(*) as number, group_concat(mh.stoma_protrusion_id) as which_one
+      FROM medical_history mh join stoma_protrusion sp on mh.stoma_protrusion_id = sp.id
+      WHERE surgery_id = ?
+      group by mh.stoma_protrusion_id, sp.name;`,
+      [surgery_id]
+    )
+
+    let stoma_construction = await queryAsync(
+      `SELECT mh.stoma_construction_id as stoma_construction_id, scn.name as stoma_construction_name, count(*) as number, group_concat(mh.stoma_construction_id) as which_one
+      FROM medical_history mh join stoma_construction scn on mh.stoma_construction_id = scn.id
+      WHERE surgery_id = ?
+      group by mh.stoma_construction_id, scn.name;`,
+      [surgery_id]
+    )
+
+    let mucocutaneous_suture_line = await queryAsync(
+      `SELECT mh.mucocutaneous_suture_line_id as mucocutaneous_suture_line_id, ms.name as mucocutaneous_suture_line_name, count(*) as number, group_concat(mh.mucocutaneous_suture_line_id) as which_one
+      FROM medical_history mh join mucocutaneous_suture_line ms on mh.mucocutaneous_suture_line_id = ms.id
+      WHERE surgery_id = ?
+      group by mh.mucocutaneous_suture_line_id, ms.name;`,
+      [surgery_id]
+    )
+
+    let stoma_effluent = await queryAsync(
+      `SELECT mh.stoma_effluent_id as stoma_effluent_id, se.name as stoma_effluent_name, count(*) as number, group_concat(mh.stoma_effluent_id) as which_one
+      FROM medical_history mh join stoma_effluent se on mh.stoma_effluent_id = se.id
+      WHERE surgery_id = ?
+      group by mh.stoma_effluent_id, se.name;`,
+      [surgery_id]
+    )
+
+    let type_of_diversion = await queryAsync(
+      `SELECT mh.type_of_diversion_id as type_of_diversion_id, tod.name as type_of_diversion_name, count(*) as number, group_concat(mh.type_of_diversion_id) as which_one
+      FROM medical_history mh join type_of_diversion tod on mh.type_of_diversion_id = tod.id
+      WHERE surgery_id = ?
+      group by mh.type_of_diversion_id, tod.name;`,
+      [surgery_id]
+    )
+
+    res.json({
+      appliance,
+      medicine,
+      stoma_color,
+      peristomal_skin,
+      stoma_characteristics,
+      medical_history,
+      stoma_shape,
+      stoma_protrusion,
+      stoma_construction,
+      mucocutaneous_suture_line,
+      stoma_effluent,
+      type_of_diversion,
+    })
+  } catch (error) {
+    console.error(error)
+    res
+      .status(500)
+      .json({ error: "An error occurred while fetching report data" })
+  }
+})
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
