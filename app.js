@@ -1358,108 +1358,132 @@ app.post("/report", async (req, res) => {
 
 // สร้าง endpoint สำหรับ /report
 app.get("/report", async (req, res) => {
-  const { surgery_id } = req.query // รับค่า surgery_id จาก query string
+  const { surgery_id } = req.query
 
   if (!surgery_id) {
     return res.status(400).json({ error: "surgery_id is required" })
   }
 
   try {
-    let appliance = await queryAsync(
+    // Query medical history using surgery_id directly
+    const appliance = await queryAsync(
       `SELECT mh.appliances_id as appliance_id, a.name as appliances_name, count(*) as number, group_concat(mh.appliances_id) as which_one
-      FROM medical_history mh join appliances a on mh.appliances_id = a.id
-      WHERE surgery_id = ?
-      group by mh.appliances_id, a.name;`,
+       FROM medical_history mh 
+       JOIN appliances a ON mh.appliances_id = a.id
+       WHERE mh.surgery_id = ?
+       GROUP BY mh.appliances_id, a.name;`,
       [surgery_id]
     )
 
-    let medicine = await queryAsync(
+    // Query medicine
+    const medicine = await queryAsync(
       `SELECT mh.medicine_id as medicine_id, m.name as medicine_name, count(*) as number, group_concat(mh.medicine_id) as which_one
-      FROM medical_history mh join medicine m on mh.medicine_id = m.id
-      WHERE surgery_id = ?
-      group by mh.medicine_id, m.name;`,
+       FROM medical_history mh 
+       JOIN medicine m ON mh.medicine_id = m.id
+       WHERE mh.surgery_id = ?
+       GROUP BY mh.medicine_id, m.name;`,
       [surgery_id]
     )
 
-    let stoma_color = await queryAsync(
+    // Query stoma color
+    const stoma_color = await queryAsync(
       `SELECT mh.stoma_color_id as stoma_color_id, sc.name as stoma_color_name, count(*) as number, group_concat(mh.stoma_color_id) as which_one
-      FROM medical_history mh join stoma_color sc on mh.stoma_color_id = sc.id
-      WHERE surgery_id = ?
-      group by mh.stoma_color_id, sc.name;`,
+       FROM medical_history mh 
+       JOIN stoma_color sc ON mh.stoma_color_id = sc.id
+       WHERE mh.surgery_id = ?
+       GROUP BY mh.stoma_color_id, sc.name;`,
       [surgery_id]
     )
 
-    let peristomal_skin = await queryAsync(
+    // Query peristomal skin
+    const peristomal_skin = await queryAsync(
       `SELECT mh.peristomal_skin_id as peristomal_skin_id, ps.name as peristomal_skin_name, count(*) as number, group_concat(mh.peristomal_skin_id) as which_one
-      FROM medical_history mh join peristomal_skin ps on mh.peristomal_skin_id = ps.id
-      WHERE surgery_id = ?
-      group by mh.peristomal_skin_id, ps.name;`,
+       FROM medical_history mh 
+       JOIN peristomal_skin ps ON mh.peristomal_skin_id = ps.id
+       WHERE mh.surgery_id = ?
+       GROUP BY mh.peristomal_skin_id, ps.name;`,
       [surgery_id]
     )
 
-    let medical_history = await queryAsync(
+    // Query medical history for stoma size
+    const medical_history = await queryAsync(
       `SELECT stoma_size_width_mm, stoma_size_length_mm
-      FROM medical_history 
-      WHERE surgery_id = ?;`,
+       FROM medical_history 
+       WHERE surgery_id = ?;`,
       [surgery_id]
     )
 
-    let stoma_characteristics = await queryAsync(
+    // Query stoma characteristics
+    const stoma_characteristics = await queryAsync(
       `SELECT mh.stoma_characteristics_id as stoma_characteristics_id, sct.name as stoma_characteristics_name, count(*) as number, group_concat(mh.stoma_characteristics_id) as which_one
-      FROM medical_history mh join stoma_characteristics sct on mh.stoma_characteristics_id = sct.id
-      WHERE surgery_id = ?
-      group by mh.stoma_characteristics_id, sct.name;`,
+       FROM medical_history mh 
+       JOIN stoma_characteristics sct ON mh.stoma_characteristics_id = sct.id
+       WHERE mh.surgery_id = ?
+       GROUP BY mh.stoma_characteristics_id, sct.name;`,
       [surgery_id]
     )
 
-    let stoma_shape = await queryAsync(
+    // Query stoma shape
+    const stoma_shape = await queryAsync(
       `SELECT mh.stoma_shape_id as stoma_shape_id, ss.name as stoma_shape_name, count(*) as number, group_concat(mh.stoma_shape_id) as which_one
-      FROM medical_history mh join stoma_shape ss on mh.stoma_shape_id = ss.id
-      WHERE surgery_id = ?
-      group by mh.stoma_shape_id, ss.name;`,
+       FROM medical_history mh 
+       JOIN stoma_shape ss ON mh.stoma_shape_id = ss.id
+       WHERE mh.surgery_id = ?
+       GROUP BY mh.stoma_shape_id, ss.name;`,
       [surgery_id]
     )
 
-    let stoma_protrusion = await queryAsync(
+    // Query stoma protrusion
+    const stoma_protrusion = await queryAsync(
       `SELECT mh.stoma_protrusion_id as stoma_protrusion_id, sp.name as stoma_protrusion_name, count(*) as number, group_concat(mh.stoma_protrusion_id) as which_one
-      FROM medical_history mh join stoma_protrusion sp on mh.stoma_protrusion_id = sp.id
-      WHERE surgery_id = ?
-      group by mh.stoma_protrusion_id, sp.name;`,
+       FROM medical_history mh 
+       JOIN stoma_protrusion sp ON mh.stoma_protrusion_id = sp.id
+       WHERE mh.surgery_id = ?
+       GROUP BY mh.stoma_protrusion_id, sp.name;`,
       [surgery_id]
     )
 
-    let stoma_construction = await queryAsync(
+    // Query stoma construction
+    const stoma_construction = await queryAsync(
       `SELECT mh.stoma_construction_id as stoma_construction_id, scn.name as stoma_construction_name, count(*) as number, group_concat(mh.stoma_construction_id) as which_one
-      FROM medical_history mh join stoma_construction scn on mh.stoma_construction_id = scn.id
-      WHERE surgery_id = ?
-      group by mh.stoma_construction_id, scn.name;`,
+       FROM medical_history mh 
+       JOIN stoma_construction scn ON mh.stoma_construction_id = scn.id
+       WHERE mh.surgery_id = ?
+       GROUP BY mh.stoma_construction_id, scn.name;`,
       [surgery_id]
     )
 
-    let mucocutaneous_suture_line = await queryAsync(
+    // Query mucocutaneous suture line
+    const mucocutaneous_suture_line = await queryAsync(
       `SELECT mh.mucocutaneous_suture_line_id as mucocutaneous_suture_line_id, ms.name as mucocutaneous_suture_line_name, count(*) as number, group_concat(mh.mucocutaneous_suture_line_id) as which_one
-      FROM medical_history mh join mucocutaneous_suture_line ms on mh.mucocutaneous_suture_line_id = ms.id
-      WHERE surgery_id = ?
-      group by mh.mucocutaneous_suture_line_id, ms.name;`,
+       FROM medical_history mh 
+       JOIN mucocutaneous_suture_line ms ON mh.mucocutaneous_suture_line_id = ms.id
+       WHERE mh.surgery_id = ?
+       GROUP BY mh.mucocutaneous_suture_line_id, ms.name;`,
       [surgery_id]
     )
 
-    let stoma_effluent = await queryAsync(
+    // Query stoma effluent
+    const stoma_effluent = await queryAsync(
       `SELECT mh.stoma_effluent_id as stoma_effluent_id, se.name as stoma_effluent_name, count(*) as number, group_concat(mh.stoma_effluent_id) as which_one
-      FROM medical_history mh join stoma_effluent se on mh.stoma_effluent_id = se.id
-      WHERE surgery_id = ?
-      group by mh.stoma_effluent_id, se.name;`,
+       FROM medical_history mh 
+       JOIN stoma_effluent se ON mh.stoma_effluent_id = se.id
+       WHERE mh.surgery_id = ?
+       GROUP BY mh.stoma_effluent_id, se.name;`,
       [surgery_id]
     )
 
-    let type_of_diversion = await queryAsync(
+    // Query type of diversion
+    const type_of_diversion = await queryAsync(
       `SELECT mh.type_of_diversion_id as type_of_diversion_id, tod.name as type_of_diversion_name, count(*) as number, group_concat(mh.type_of_diversion_id) as which_one
-      FROM medical_history mh join type_of_diversion tod on mh.type_of_diversion_id = tod.id
-      WHERE surgery_id = ?
-      group by mh.type_of_diversion_id, tod.name;`,
+       FROM medical_history mh 
+       JOIN type_of_diversion tod ON mh.type_of_diversion_id = tod.id
+       WHERE mh.surgery_id = ?
+       GROUP BY mh.type_of_diversion_id, tod.name;`,
       [surgery_id]
     )
 
+    // Return results as JSON response
     res.json({
       appliance,
       medicine,
